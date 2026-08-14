@@ -4,16 +4,21 @@ import NavBar from '../components/NavBar'
 import { AuthProvider } from '../src/context/AuthProvider'
 
 export const metadata = {
-  title: 'Rwanda Realestate',
-  description: 'MVP real estate frontend',
+  title: 'Nzu',
+  description: 'Nzu — Find home. Build community. Rent, buy, and sell property across Rwanda.',
+  icons: {
+    icon: '/icon.png',
+    shortcut: '/icon.png',
+    apple: '/icon.png',
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>
+      <body className="bg-nzu-bg text-slate-900 antialiased">
         <AuthProvider>
-          <header>
+          <header className="bg-nzu-teal text-white shadow-sm">
             <div className="container mx-auto p-4"><NavBar /></div>
           </header>
           <main className="container mx-auto p-4">

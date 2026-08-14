@@ -51,10 +51,15 @@ export function setToken(token: string) {
   } catch {}
 }
 
-async function request<T>(path: string, opts: RequestInit = {}): Promise<T> {
+type ApiRequestOptions = Omit<RequestInit, 'body'> & {
+  body?: any;
+  headers?: Record<string, string>;
+};
+
+async function request<T>(path: string, opts: ApiRequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = {
     Accept: 'application/json',
-    ...opts.headers,
+    ...(opts.headers || {}),
   } as Record<string, string>;
 
   const token = getToken();

@@ -15,8 +15,8 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(() => getStoredUser())
-  const [loading, setLoading] = useState<boolean>(!user)
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState<boolean>(true)
 
   async function refreshUser() {
     setLoading(true)
@@ -26,16 +26,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       try { setCurrentUser(u) } catch {}
     } catch {
       setUser(null)
+      try { clearToken() } catch {}
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
+    const storedUser = getStoredUser()
+    if (storedUser) {
+      setUser(storedUser)
+      setLoading(false)
+      return
+    }
+
     // If no stored user but token exists, fetch /me
-    if (!user && getStoredToken()) {
+    if (getStoredToken()) {
       refreshUser()
     } else {
+      setUser(null)
       setLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

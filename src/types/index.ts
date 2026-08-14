@@ -90,6 +90,10 @@ export interface Payment {
   payer_name: string;
   reference_number: string;
   screenshot_url?: string | null;
+  receipt_id?: number | null;
+  contract_id?: number | null;
+  overdue?: boolean;
+  sla_deadline?: string | null;
   status?: PaymentStatus;
   created_at?: string;
   updated_at?: string;
