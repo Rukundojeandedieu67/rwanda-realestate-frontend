@@ -37,9 +37,14 @@ export interface Property {
   bathrooms?: number | null;
   size_sqm?: number | null;
   images: PropertyImage[];
+  owner_id?: number | null;
+  agent_id?: number | null;
   owner?: User | null;
   agent?: User | null;
   status?: 'pending' | 'verified' | 'rejected';
+  rejection_reason?: string | null;
+  possible_duplicate?: boolean;
+  duplicate_of_property_id?: number | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -70,6 +75,9 @@ export interface Lease {
   id: number;
   property_id: number;
   tenant_id: number;
+  tenant?: User | null;
+  tenant_name?: string | null;
+  property?: Partial<Property> | null;
   start_date: string;
   rent_amount: number;
   currency: string;
@@ -114,7 +122,9 @@ export interface Contract {
 export interface Review {
   id: number;
   agent_id: number;
+  agent?: User | null;
   user_id: number;
+  user?: User | null;
   rating: number; // 1-5
   comment?: string | null;
   created_at?: string;

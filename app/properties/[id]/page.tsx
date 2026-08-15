@@ -108,6 +108,8 @@ export default function PropertyDetailPage() {
   if (!property) return <ErrorAlert message="Property not found. It may have been removed or is no longer available." />
 
   const images = property.images || []
+  const showResidentialDetailFields = property.category === 'residential' || property.category === 'short_stay'
+  const showSizeField = property.category !== 'land'
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -166,9 +168,9 @@ export default function PropertyDetailPage() {
           <div className="bg-gray-50 p-4 rounded mb-6">
             <h3 className="font-semibold mb-3">Property Details</h3>
             <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-              {property.bedrooms !== null && <div><strong>Bedrooms:</strong> {property.bedrooms}</div>}
-              {property.bathrooms !== null && <div><strong>Bathrooms:</strong> {property.bathrooms}</div>}
-              {property.size_sqm !== null && <div><strong>Size:</strong> {property.size_sqm} sqm</div>}
+              {showResidentialDetailFields && property.bedrooms !== null && <div><strong>Bedrooms:</strong> {property.bedrooms}</div>}
+              {showResidentialDetailFields && property.bathrooms !== null && <div><strong>Bathrooms:</strong> {property.bathrooms}</div>}
+              {showSizeField && property.size_sqm !== null && <div><strong>Size:</strong> {property.size_sqm} sqm</div>}
               <div><strong>Province:</strong> {property.province || 'N/A'}</div>
               <div><strong>District:</strong> {property.district || 'N/A'}</div>
               <div><strong>Sector:</strong> {property.sector || 'N/A'}</div>
@@ -189,9 +191,17 @@ export default function PropertyDetailPage() {
             )}
             {property.agent && (
               <div>
-                <p><strong>Agent:</strong> {property.agent.name}</p>
+                <p>
+                  <strong>Agent:</strong>{' '}
+                  <Link href={`/agents/${property.agent.id}`} className="text-blue-600 hover:underline">
+                    {property.agent.name}
+                  </Link>
+                </p>
                 <p className="text-sm text-gray-600">{property.agent.email}</p>
                 {property.agent.phone && <p className="text-sm text-gray-600">{property.agent.phone}</p>}
+                <Link href={`/agents/${property.agent.id}`} className="mt-2 inline-block text-sm font-medium text-blue-600 hover:underline">
+                  View agent reviews →
+                </Link>
               </div>
             )}
           </div>

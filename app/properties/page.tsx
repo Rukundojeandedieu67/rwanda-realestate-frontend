@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import api from '../../src/lib/api'
@@ -7,12 +7,19 @@ import type { Property, Paginated } from '../../src/types/index'
 import { PageLoader, ErrorAlert, EmptyState, PropertyCardSkeleton } from '../../components/StatusStates'
 
 export default function PropertiesPage() {
+  return (
+    <Suspense fallback={<PageLoader label="Loading properties..." />}>
+      <PropertiesContent />
+    </Suspense>
+  )
+}
+
+function PropertiesContent() {
   const searchParams = useSearchParams()
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Filters
   const [category, setCategory] = useState(searchParams.get('category') || '')
   const [listingType, setListingType] = useState(searchParams.get('listing_type') || '')
   const [province, setProvince] = useState(searchParams.get('province') || '')
@@ -63,7 +70,7 @@ export default function PropertiesPage() {
       {/* Filter Sidebar */}
       <aside className="w-full bg-gray-50 p-4 rounded-2xl border border-slate-200 lg:max-w-xs">
         <h3 className="text-lg font-semibold mb-4 text-nzu-teal">Filters</h3>
-        
+
         <label className="block mb-3">
           <span className="text-sm font-medium">Category</span>
           <select value={category} onChange={e => setCategory(e.target.value)} className="w-full border p-2 mt-1 text-sm">
