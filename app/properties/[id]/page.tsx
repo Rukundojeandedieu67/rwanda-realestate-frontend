@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import api from '../../../src/lib/api'
 import useAuth from '../../../src/hooks/useAuth'
 import type { Property } from '../../../src/types/index'
+import { PageLoader, ErrorAlert } from '../../../components/StatusStates'
 
 export default function PropertyDetailPage() {
   const params = useParams()
@@ -14,6 +15,7 @@ export default function PropertyDetailPage() {
   const [property, setProperty] = useState<Property | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [notFound, setNotFound] = useState(false)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isFavorited, setIsFavorited] = useState(false)
   const [inquireMessage, setInquireMessage] = useState('')
@@ -24,11 +26,19 @@ export default function PropertyDetailPage() {
   async function loadProperty() {
     setLoading(true)
     setError(null)
+    setNotFound(false)
     try {
       const prop = await api.properties.get(parseInt(propertyId))
       setProperty(prop)
     } catch (err: any) {
-      setError(err.message || 'Failed to load property')
+      const status = Number(err?.status)
+      const message = String(err?.message || '')
+      if (status === 404 || /No query results|not found/i.test(message)) {
+        setNotFound(true)
+        return
+      }
+
+      setError('We couldn’t load this property right now. Please try again shortly.')
     } finally {
       setLoading(false)
     }
@@ -75,9 +85,27 @@ export default function PropertyDetailPage() {
     }
   }
 
-  if (loading) return <div className="text-center py-12">Loading property...</div>
-  if (error) return <div className="bg-red-50 text-red-700 p-4 rounded">{error}</div>
-  if (!property) return <div className="text-center py-12">Property not found</div>
+  if (loading) return <PageLoader label="Loading property details..." />
+  if (notFound) {
+    return (
+      <div className="mx-auto max-w-lg py-20 text-center">
+        <div className="mb-6 text-7xl font-black tracking-tight text-nzu-teal">404</div>
+        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-nzu-teal">Nzu</p>
+        <h1 className="mt-3 text-3xl font-bold text-slate-900">Property not found</h1>
+        <p className="mt-4 text-slate-600">This listing no longer exists or is unavailable right now.</p>
+        <div className="mt-6 flex justify-center gap-3">
+          <Link href="/properties" className="inline-flex rounded-lg bg-nzu-terracotta px-4 py-2 font-semibold text-white hover:bg-nzu-terracotta-dark">
+            Browse properties
+          </Link>
+          <Link href="/" className="inline-flex rounded-lg border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50">
+            Go home
+          </Link>
+        </div>
+      </div>
+    )
+  }
+  if (error) return <ErrorAlert message={error} actionLabel="Retry" onAction={loadProperty} />
+  if (!property) return <ErrorAlert message="Property not found. It may have been removed or is no longer available." />
 
   const images = property.images || []
 
@@ -109,9 +137,9 @@ export default function PropertyDetailPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Main Content */}
-        <div className="col-span-2">
+        <div className="lg:col-span-2">
           <h1 className="text-3xl font-bold mb-2">{property.title}</h1>
           
           <div className="flex items-center gap-4 mb-4">
@@ -137,7 +165,7 @@ export default function PropertyDetailPage() {
           {/* Property Details Grid */}
           <div className="bg-gray-50 p-4 rounded mb-6">
             <h3 className="font-semibold mb-3">Property Details</h3>
-            <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
               {property.bedrooms !== null && <div><strong>Bedrooms:</strong> {property.bedrooms}</div>}
               {property.bathrooms !== null && <div><strong>Bathrooms:</strong> {property.bathrooms}</div>}
               {property.size_sqm !== null && <div><strong>Size:</strong> {property.size_sqm} sqm</div>}

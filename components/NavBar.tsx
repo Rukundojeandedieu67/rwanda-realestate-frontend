@@ -8,12 +8,12 @@ export default function NavBar() {
   const { user, loading, logout } = useAuth()
 
   return (
-    <nav className="flex items-center justify-between py-3">
+    <nav className="flex flex-col gap-3 py-3 md:flex-row md:items-center md:justify-between">
       <Link href="/" className="flex items-center gap-3 text-lg font-bold text-white hover:text-nzu-cream">
         <Image src="/nzulogo.jpg" alt="Nzu logo" width={36} height={36} className="h-9 w-auto rounded-md object-cover" />
         <span>Nzu</span>
       </Link>
-      <div className="flex items-center gap-4 text-sm">
+      <div className="flex flex-wrap items-center gap-3 text-sm md:gap-4">
         <Link href="/properties" className="text-white/90 hover:text-nzu-cream transition-colors">Properties</Link>
         {loading ? null : user ? (
           <>

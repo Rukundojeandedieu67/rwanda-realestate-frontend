@@ -2,18 +2,19 @@
 
 export default function ErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
-    <div className="max-w-md mx-auto text-center py-16">
-      <div className="text-5xl mb-4">⚠️</div>
-      <h1 className="text-3xl font-bold mb-2">Something went wrong</h1>
-      <p className="text-gray-600 mb-6">We hit an unexpected error while loading this page.</p>
+    <div className="mx-auto max-w-lg py-16 text-center">
+      <div className="mb-6 text-6xl">⚠️</div>
+      <p className="text-sm font-semibold uppercase tracking-[0.25em] text-nzu-teal">Nzu</p>
+      <h1 className="mt-3 text-3xl font-bold text-slate-900">Something went wrong</h1>
+      <p className="mt-4 text-slate-600">We hit an unexpected issue while loading this page. Please try again.</p>
       <button
         onClick={() => reset()}
-        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        className="mt-6 inline-flex rounded-lg bg-nzu-terracotta px-4 py-2 font-semibold text-white hover:bg-nzu-terracotta-dark"
       >
         Try again
       </button>
       {process.env.NODE_ENV !== 'production' && (
-        <pre className="mt-6 text-left text-xs bg-red-50 text-red-700 p-3 rounded overflow-auto">
+        <pre className="mt-6 overflow-auto rounded-xl bg-red-50 p-3 text-left text-xs text-red-700">
           {error.message}
         </pre>
       )}

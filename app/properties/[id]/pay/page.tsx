@@ -18,6 +18,7 @@ export default function PropertyPayPage() {
   const [property, setProperty] = useState<Property | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [notFound, setNotFound] = useState(false)
   const [submitLoading, setSubmitLoading] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submittedPayment, setSubmittedPayment] = useState<Payment | null>(null)
@@ -33,12 +34,20 @@ export default function PropertyPayPage() {
     async function loadProperty() {
       setLoading(true)
       setError(null)
+      setNotFound(false)
       try {
         const prop = await api.properties.get(propertyId)
         setProperty(prop)
         setAmount(String(prop.price || ''))
       } catch (err: any) {
-        setError(err.message || 'Failed to load property')
+        const status = Number(err?.status)
+        const message = String(err?.message || '')
+        if (status === 404 || /No query results|not found/i.test(message)) {
+          setNotFound(true)
+          return
+        }
+
+        setError('We couldn’t load this property right now. Please try again shortly.')
       } finally {
         setLoading(false)
       }
@@ -111,8 +120,27 @@ export default function PropertyPayPage() {
     return <div className="text-center py-12">Loading payment page...</div>
   }
 
+  if (notFound) {
+    return (
+      <div className="mx-auto max-w-lg py-20 text-center">
+        <div className="mb-6 text-7xl font-black tracking-tight text-nzu-teal">404</div>
+        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-nzu-teal">Nzu</p>
+        <h1 className="mt-3 text-3xl font-bold text-slate-900">Property not found</h1>
+        <p className="mt-4 text-slate-600">This property is unavailable or no longer exists.</p>
+        <div className="mt-6 flex justify-center gap-3">
+          <Link href="/properties" className="inline-flex rounded-lg bg-nzu-terracotta px-4 py-2 font-semibold text-white hover:bg-nzu-terracotta-dark">
+            Browse properties
+          </Link>
+          <Link href="/" className="inline-flex rounded-lg border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50">
+            Go home
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   if (error) {
-    return <div className="bg-red-50 text-red-700 p-4 rounded">{error}</div>
+    return <div className="bg-red-50 text-red-700 p-4 rounded">We couldn’t load this property right now. Please try again shortly.</div>
   }
 
   if (!property) {

@@ -12,7 +12,17 @@ body {
 }
 
 @layer base {
+  * {
+    box-sizing: border-box;
+  }
+
   a {
     @apply transition-colors;
+  }
+}
+
+@layer utilities {
+  .container-shell {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
   }
 }

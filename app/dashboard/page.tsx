@@ -4,12 +4,13 @@ import { useRouter } from 'next/navigation'
 import useAuth from '../../src/hooks/useAuth'
 import type { Favorite, Inquiry, Property, Payment } from '../../src/types/index'
 import api from '../../src/lib/api'
+import { PageLoader, ErrorAlert, EmptyState, DashboardSectionSkeleton } from '../../components/StatusStates'
 
 export default function DashboardPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
 
-  if (authLoading) return <div className="text-center py-12">Loading...</div>
+  if (authLoading) return <PageLoader label="Checking your session..." />
   if (!user) {
     router.push('/login')
     return null
@@ -93,7 +94,7 @@ function BuyerRenterDashboard({ user }: { user: any }) {
       <section className="mb-10">
         <h2 className="text-2xl font-semibold mb-4">My Favorites ({favorites.length})</h2>
         {favorites.length === 0 ? (
-          <p className="text-gray-600">No favorited properties yet.</p>
+          <EmptyState title="No favorites yet" description="Save homes you like to revisit them here." />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {favorites.map(fav => (
@@ -117,7 +118,7 @@ function BuyerRenterDashboard({ user }: { user: any }) {
       <section className="mb-10">
         <h2 className="text-2xl font-semibold mb-4">My Inquiries ({inquiries.length})</h2>
         {inquiries.length === 0 ? (
-          <p className="text-gray-600">No inquiries sent yet.</p>
+          <EmptyState title="No inquiries yet" description="Your conversations with sellers and agents will appear here." />
         ) : (
           <div className="space-y-3">
             {inquiries.map(inq => (
@@ -143,7 +144,7 @@ function BuyerRenterDashboard({ user }: { user: any }) {
       <section>
         <h2 className="text-2xl font-semibold mb-4">Payment History ({payments.length})</h2>
         {payments.length === 0 ? (
-          <p className="text-gray-600">No payment submissions yet.</p>
+          <EmptyState title="No payment submissions yet" description="Once you submit a payment, your status and download links will appear here." />
         ) : (
           <div className="space-y-3">
             {payments.map(payment => (
@@ -207,6 +208,7 @@ function OwnerAgentDashboard({ user }: { user: any }) {
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -227,10 +229,12 @@ function OwnerAgentDashboard({ user }: { user: any }) {
   async function handleDelete(id: number) {
     if (!confirm('Are you sure you want to delete this property?')) return
     try {
+      setActionError(null)
       await api.properties.delete(id)
       setProperties(properties.filter(p => p.id !== id))
     } catch (err: any) {
-      alert(err.message || 'Failed to delete property')
+      const message = err?.message || 'Failed to delete property'
+      setActionError(message)
     }
   }
 
@@ -242,15 +246,21 @@ function OwnerAgentDashboard({ user }: { user: any }) {
       <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
       <p className="text-gray-600 mb-8">Welcome back, {user.name}!</p>
 
-      <div className="flex justify-between items-center mb-6">
+      {actionError && (
+        <div className="mb-4">
+          <ErrorAlert message={actionError} actionLabel="Dismiss" onAction={() => setActionError(null)} />
+        </div>
+      )}
+
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-2xl font-semibold">My Properties ({properties.length})</h2>
-        <a href="/dashboard/properties/new" className="px-4 py-2 bg-nzu-terracotta text-white rounded font-semibold hover:bg-nzu-terracotta-dark">
+        <a href="/dashboard/properties/new" className="inline-flex rounded-lg bg-nzu-terracotta px-4 py-2 font-semibold text-white hover:bg-nzu-terracotta-dark">
           + Add Property
         </a>
       </div>
 
       {properties.length === 0 ? (
-        <p className="text-gray-600">No properties yet. <a href="/dashboard/properties/new" className="text-blue-600 hover:underline">Create one</a>.</p>
+        <EmptyState title="No properties yet" description="Create your first listing to start receiving interest from buyers and renters." />
       ) : (
         <div className="space-y-3">
           {properties.map(prop => (
@@ -365,7 +375,7 @@ function AdminDashboard({ user }: { user: any }) {
       <section className="mb-10">
         <h2 className="text-2xl font-semibold mb-4">Pending Properties ({pendingProps.length})</h2>
         {pendingProps.length === 0 ? (
-          <p className="text-gray-600">No pending properties.</p>
+          <EmptyState title="No pending properties" description="New property submissions will appear here for review." />
         ) : (
           <div className="space-y-3">
             {pendingProps.map(prop => (
@@ -395,7 +405,7 @@ function AdminDashboard({ user }: { user: any }) {
       <section>
         <h2 className="text-2xl font-semibold mb-4">Payments Queue ({payments.length})</h2>
         {payments.length === 0 ? (
-          <p className="text-gray-600">No payments.</p>
+          <EmptyState title="No payments queued" description="Buyer payment submissions will appear here for approval." />
         ) : (
           <div className="space-y-3">
             {payments.map(payment => {
