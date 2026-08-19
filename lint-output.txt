@@ -1,0 +1,27 @@
+
+> nzu-frontend@0.1.0 lint
+> eslint . --ext .js,.jsx,.ts,.tsx
+
+
+Oops! Something went wrong! :(
+
+ESLint: 9.39.5
+
+TypeError: Converting circular structure to JSON
+    --> starting at object with constructor 'Object'
+    |     property 'configs' -> object with constructor 'Object'
+    |     property 'flat' -> object with constructor 'Object'
+    |     ...
+    |     property 'plugins' -> object with constructor 'Object'
+    --- property 'react' closes the circle
+Referenced from: 
+    at JSON.stringify (<anonymous>)
+    at C:\wamp64\www\rwanda-realestate-frontend\node_modules\@eslint\eslintrc\dist\eslintrc.cjs:2255:45
+    at Array.map (<anonymous>)
+    at ConfigValidator.formatErrors (C:\wamp64\www\rwanda-realestate-frontend\node_modules\@eslint\eslintrc\dist\eslintrc.cjs:2246:23)
+    at ConfigValidator.validateConfigSchema (C:\wamp64\www\rwanda-realestate-frontend\node_modules\@eslint\eslintrc\dist\eslintrc.cjs:2277:84)
+    at ConfigArrayFactory._normalizeConfigData (C:\wamp64\www\rwanda-realestate-frontend\node_modules\@eslint\eslintrc\dist\eslintrc.cjs:3123:19)
+    at ConfigArrayFactory._loadConfigData (C:\wamp64\www\rwanda-realestate-frontend\node_modules\@eslint\eslintrc\dist\eslintrc.cjs:3088:21)
+    at ConfigArrayFactory._loadExtendedShareableConfig (C:\wamp64\www\rwanda-realestate-frontend\node_modules\@eslint\eslintrc\dist\eslintrc.cjs:3393:21)
+    at ConfigArrayFactory._loadExtends (C:\wamp64\www\rwanda-realestate-frontend\node_modules\@eslint\eslintrc\dist\eslintrc.cjs:3261:25)
+    at ConfigArrayFactory._normalizeObjectConfigDataBody (C:\wamp64\www\rwanda-realestate-frontend\node_modules\@eslint\eslintrc\dist\eslintrc.cjs:3199:25)

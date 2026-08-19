@@ -107,6 +107,30 @@ export default function PropertyDetailPage() {
   if (error) return <ErrorAlert message={error} actionLabel="Retry" onAction={loadProperty} />
   if (!property) return <ErrorAlert message="Property not found. It may have been removed or is no longer available." />
 
+  const isPubliclyVisible = property.status === 'verified' || (user && (user.role === 'admin' || Number(property.owner?.id) === Number(user.id) || Number(property.agent?.id) === Number(user.id)))
+  if (!isPubliclyVisible) {
+    return (
+      <div className="mx-auto max-w-xl py-20 text-center">
+        <div className="mb-6 text-6xl">🔒</div>
+        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-nzu-teal">Nzu</p>
+        <h1 className="mt-3 text-3xl font-bold text-slate-900">This listing is not available</h1>
+        <p className="mt-4 text-slate-600">
+          {property.status === 'pending'
+            ? 'This property is still awaiting admin review and is not public yet.'
+            : 'This listing has been removed from public view or rejected and is not currently available.'}
+        </p>
+        <div className="mt-6 flex justify-center gap-3">
+          <Link href="/properties" className="inline-flex rounded-lg bg-nzu-terracotta px-4 py-2 font-semibold text-white hover:bg-nzu-terracotta-dark">
+            Browse properties
+          </Link>
+          <Link href="/" className="inline-flex rounded-lg border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50">
+            Go home
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   const images = property.images || []
   const showResidentialDetailFields = property.category === 'residential' || property.category === 'short_stay'
   const showSizeField = property.category !== 'land'

@@ -18,35 +18,61 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
 
-  async function refreshUser() {
-    setLoading(true)
+  async function refreshUser(): Promise<void> {
     try {
       const u = await api.auth.me()
       setUser(u)
       try { setCurrentUser(u) } catch {}
-    } catch {
+    } catch (err) {
+      console.error('[AuthProvider] Failed to fetch user:', err)
       setUser(null)
       try { clearToken() } catch {}
-    } finally {
-      setLoading(false)
+      throw err
     }
   }
 
   useEffect(() => {
-    const storedUser = getStoredUser()
-    if (storedUser) {
-      setUser(storedUser)
-      setLoading(false)
-      return
+    // This runs only once on mount
+    async function initSession() {
+      try {
+        const storedUser = getStoredUser()
+        const storedToken = getStoredToken()
+
+        // If we have a stored user, use that immediately
+        if (storedUser) {
+          setUser(storedUser)
+          setLoading(false)
+          
+          // But verify it's still valid if we have a token
+          if (storedToken) {
+            try {
+              await refreshUser()
+            } catch (err) {
+              // If refresh fails, clear session
+              setUser(null)
+              clearToken()
+            }
+          }
+        } else if (storedToken) {
+          // No stored user but token exists, try to fetch the user
+          try {
+            await refreshUser()
+          } catch (err) {
+            // Failed to fetch user, session is invalid
+          } finally {
+            setLoading(false)
+          }
+        } else {
+          // No session at all
+          setUser(null)
+          setLoading(false)
+        }
+      } catch (err) {
+        setLoading(false)
+      }
     }
 
-    // If no stored user but token exists, fetch /me
-    if (getStoredToken()) {
-      refreshUser()
-    } else {
-      setUser(null)
-      setLoading(false)
-    }
+    initSession()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

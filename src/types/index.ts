@@ -1,4 +1,4 @@
-export type Role = 'buyer_renter' | 'owner' | 'agent' | 'admin';
+export type Role = 'buyer_renter' | 'owner' | 'agent' | 'admin' | 'superadmin';
 
 export interface User {
   id: number;
@@ -8,6 +8,30 @@ export interface User {
   role: Role;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface SiteSettings {
+  hero_headline?: string | null;
+  hero_subheadline?: string | null;
+  hero_background_image_url?: string | null;
+  site_notification_banner?: string | null;
+  site_notification_active?: boolean;
+  smtp_host_configured?: boolean;
+  smtp_port_configured?: boolean;
+  smtp_username_configured?: boolean;
+  smtp_password_configured?: boolean;
+  smtp_from_address_configured?: boolean;
+  smtp_password?: string | null;
+  smtp_host?: string | null;
+  smtp_port?: string | number | null;
+  smtp_username?: string | null;
+  smtp_from_address?: string | null;
+}
+
+export interface ManagedUser extends User {
+  is_active?: boolean;
+  last_changed_by?: User | null;
+  last_changed_at?: string | null;
 }
 
 export interface PropertyImage {
@@ -55,6 +79,7 @@ export interface Inquiry {
   sender_id: number;
   receiver_id?: number | null;
   message: string;
+  property?: Property;
   response?: string | null;
   status?: string;
   created_at?: string;

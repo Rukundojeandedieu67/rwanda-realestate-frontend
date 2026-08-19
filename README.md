@@ -12,7 +12,10 @@ npm run dev
 ```
 
 Environment:
-- Set `NEXT_PUBLIC_API_URL` to your backend API (default: http://127.0.0.1:8000/api)
+- Copy `.env.local.example` (or create `.env.local`) and set `NEXT_PUBLIC_API_URL` to your local backend URL.
+- Local development default: `http://127.0.0.1:8000/api`
+- For production, set the same variable in the deployment environment and keep a checked-in example file at `.env.production.example` with the real production URL pattern.
+- The fallback in code is intentional for local development only; production should always override it via environment configuration.
 
 Next steps (I can do these if you confirm):
 - Implement `lib/api.ts` client helpers further
