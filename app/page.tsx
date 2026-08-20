@@ -11,7 +11,6 @@ const defaults: Required<Pick<SiteSettings, 'hero_headline' | 'hero_subheadline'
 
 export default function Home() {
   const [settings, setSettings] = useState<SiteSettings>(defaults)
-  const [notificationVisible, setNotificationVisible] = useState(true)
 
   useEffect(() => {
     api.settings.public().then(setSettings).catch(() => {})
@@ -22,12 +21,6 @@ export default function Home() {
 
   return (
     <div className="space-y-6 py-6">
-      {settings.site_notification_active && settings.site_notification_banner && notificationVisible && (
-        <div className="flex items-start justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          <p>{settings.site_notification_banner}</p>
-          <button type="button" onClick={() => setNotificationVisible(false)} className="shrink-0 font-semibold underline">Dismiss</button>
-        </div>
-      )}
       <section
         className="relative min-h-[28rem] overflow-hidden rounded-2xl bg-nzu-teal px-8 py-16 text-white shadow-sm sm:px-12"
         style={settings.hero_background_image_url ? { backgroundImage: `linear-gradient(90deg, rgba(10, 55, 60, .92), rgba(10, 55, 60, .4)), url(${settings.hero_background_image_url})`, backgroundPosition: 'center', backgroundSize: 'cover' } : undefined}

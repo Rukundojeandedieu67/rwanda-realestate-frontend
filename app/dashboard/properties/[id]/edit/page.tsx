@@ -17,6 +17,7 @@ export default function EditPropertyPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [initialValues, setInitialValues] = useState<Partial<PropertyFormValues> | undefined>(undefined)
+  const [initialImages, setInitialImages] = useState<NonNullable<Property['images']>>([])
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -34,6 +35,7 @@ export default function EditPropertyPage() {
       setLoading(true)
       setError(null)
       const prop = await api.properties.get(propertyId)
+      setInitialImages(prop.images || [])
       setInitialValues({
         title: prop.title,
         description: prop.description,
@@ -57,7 +59,7 @@ export default function EditPropertyPage() {
     }
   }
 
-  async function handleSubmit(form: PropertyFormValues) {
+  async function handleSubmit(form: PropertyFormValues, images: File[]) {
     setSaving(true)
     setError(null)
     try {
@@ -78,6 +80,7 @@ export default function EditPropertyPage() {
         size_sqm: form.size_sqm ? Number(form.size_sqm) : null,
         status: 'pending',
       })
+      if (images.length) await api.properties.uploadImages(propertyId, images)
       router.push('/dashboard')
     } catch (err: any) {
       setError(err.message || 'Failed to update property')
@@ -109,6 +112,8 @@ export default function EditPropertyPage() {
       {initialValues && (
         <PropertyForm
           initialValues={initialValues}
+          initialImages={initialImages}
+          propertyId={propertyId}
           onSubmit={handleSubmit}
           submitLabel="Update Property"
           loading={saving}

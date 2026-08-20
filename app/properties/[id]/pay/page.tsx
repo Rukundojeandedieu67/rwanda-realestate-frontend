@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import api from '../../../../src/lib/api'
 import useAuth from '../../../../src/hooks/useAuth'
-import type { Property, Payment } from '../../../../src/types/index'
+import type { Property, Payment, PaymentMethod } from '../../../../src/types/index'
+import PaymentMethodCards from '../../../../components/PaymentMethodCards'
 
 const PAYMENT_SLA_HOURS = 24
 
@@ -22,6 +23,8 @@ export default function PropertyPayPage() {
   const [submitLoading, setSubmitLoading] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submittedPayment, setSubmittedPayment] = useState<Payment | null>(null)
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true)
 
   const [amount, setAmount] = useState('')
   const [currency, setCurrency] = useState('RWF')
@@ -29,6 +32,7 @@ export default function PropertyPayPage() {
   const [payerName, setPayerName] = useState('')
   const [referenceNumber, setReferenceNumber] = useState('')
   const [screenshot, setScreenshot] = useState<File | null>(null)
+  const [paymentMethodId, setPaymentMethodId] = useState('')
 
   useEffect(() => {
     async function loadProperty() {
@@ -58,6 +62,13 @@ export default function PropertyPayPage() {
     }
   }, [propertyId])
 
+  useEffect(() => {
+    api.paymentMethods.public().then(methods => {
+      setPaymentMethods(methods)
+      setPaymentMethodId(methods[0] ? String(methods[0].id) : '')
+    }).catch(() => {}).finally(() => setPaymentMethodsLoading(false))
+  }, [])
+
   const slaDeadline = useMemo(() => {
     const date = new Date()
     date.setHours(date.getHours() + PAYMENT_SLA_HOURS)
@@ -83,8 +94,8 @@ export default function PropertyPayPage() {
       return
     }
 
-    if (!amount || !referenceNumber.trim() || !payerName.trim()) {
-      setSubmitError('Amount, payer name, and reference number are required.')
+    if (!amount || !referenceNumber.trim() || !payerName.trim() || !paymentMethodId) {
+      setSubmitError('Payment method, amount, payer name, and reference number are required.')
       return
     }
 
@@ -97,6 +108,7 @@ export default function PropertyPayPage() {
       formData.append('amount', String(amount))
       formData.append('currency', currency)
       formData.append('purpose', purpose)
+      formData.append('payment_method_id', paymentMethodId)
       formData.append('payer_name', payerName)
       formData.append('reference_number', referenceNumber)
       if (screenshot) {
@@ -188,15 +200,8 @@ export default function PropertyPayPage() {
         <section className="bg-white border rounded shadow p-6">
           <h1 className="text-3xl font-bold mb-4">Pay for {property.title}</h1>
           <div className="bg-amber-50 border border-amber-200 rounded p-4 mb-6">
-            <h2 className="font-semibold mb-2">MoMo payment instructions</h2>
-            <ul className="list-disc list-inside space-y-2 text-sm text-gray-700">
-              <li>Dial *182# on your MTN or Airtel Money line.</li>
-              <li>Select <strong>Pay Bill</strong> or <strong>Send Money</strong>.</li>
-              <li>Use merchant number: <strong>0788 000 000</strong>.</li>
-              <li>Enter the exact amount: <strong>{property.currency === 'RWF' ? 'RWF ' : '$'}{Number(amount || property.price).toLocaleString()}</strong>.</li>
-              <li>Use reference: <strong>{referenceNumber || 'YOUR_REFERENCE_NUMBER'}</strong>.</li>
-              <li>Confirm the transaction and keep the confirmation SMS.</li>
-            </ul>
+            <h2 className="font-semibold mb-2">Payment method</h2>
+            {paymentMethodsLoading ? <p className="text-sm text-gray-700">Loading payment methods...</p> : <PaymentMethodCards value={paymentMethodId} onChange={setPaymentMethodId} />}
           </div>
 
           <div className="space-y-3 text-sm text-gray-700">

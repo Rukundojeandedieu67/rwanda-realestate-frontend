@@ -1,6 +1,7 @@
 import './globals.css'
 import React from 'react'
 import NavBar from '../components/NavBar'
+import SiteNotification from '../components/SiteNotification'
 import { AuthProvider } from '../src/context/AuthProvider'
 
 export const metadata = {
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="container mx-auto p-4"><NavBar /></div>
           </header>
           <main className="container mx-auto p-4">
+            <SiteNotification />
             {children}
           </main>
         </AuthProvider>

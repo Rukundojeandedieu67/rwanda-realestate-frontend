@@ -28,7 +28,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
             <p className="mt-1 text-sm text-slate-400">Site-wide controls and delegation</p>
           </div>
           <nav className="flex flex-wrap gap-2 text-sm" aria-label="Super Admin navigation">
-            {[['/superadmin', 'Overview'], ['/superadmin/settings', 'Site Settings'], ['/superadmin/users', 'User Management']].map(([href, label]) => (
+            {[['/superadmin', 'Overview'], ['/superadmin/settings', 'Site Settings'], ['/superadmin/payment-methods', 'Payment Methods'], ['/superadmin/users', 'User Management']].map(([href, label]) => (
               <Link key={href} href={href} className={`rounded-lg px-3 py-2 font-semibold transition ${pathname === href ? 'bg-amber-300 text-slate-950' : 'text-slate-300 hover:bg-white/10 hover:text-white'}`}>
                 {label}
               </Link>

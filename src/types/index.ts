@@ -13,6 +13,7 @@ export interface User {
 export interface SiteSettings {
   hero_headline?: string | null;
   hero_subheadline?: string | null;
+  hero_background_image_path?: string | null;
   hero_background_image_url?: string | null;
   site_notification_banner?: string | null;
   site_notification_active?: boolean;
@@ -26,6 +27,21 @@ export interface SiteSettings {
   smtp_port?: string | number | null;
   smtp_username?: string | null;
   smtp_from_address?: string | null;
+  featured_listing_enabled?: boolean;
+  featured_listing_price?: string | number | null;
+  featured_listing_currency?: 'RWF' | 'USD' | string | null;
+  featured_listing_duration_days?: string | number | null;
+}
+
+export interface PaymentMethod {
+  id: number;
+  name: string;
+  type: 'momo' | 'bank' | 'other';
+  account_number: string;
+  account_name: string;
+  instructions?: string | null;
+  is_active: boolean;
+  display_order?: number;
 }
 
 export interface ManagedUser extends User {
@@ -37,6 +53,8 @@ export interface ManagedUser extends User {
 export interface PropertyImage {
   id: number;
   url: string;
+  path?: string;
+  is_primary?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -69,6 +87,8 @@ export interface Property {
   rejection_reason?: string | null;
   possible_duplicate?: boolean;
   duplicate_of_property_id?: number | null;
+  featured_until?: string | null;
+  is_currently_featured?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -107,6 +127,8 @@ export interface Lease {
   rent_amount: number;
   currency: string;
   status: LeaseStatus;
+  end_date?: string | null;
+  payments?: Payment[];
   created_at?: string;
   updated_at?: string;
 }
@@ -119,7 +141,7 @@ export interface Payment {
   user_id: number;
   amount: number;
   currency: string;
-  purpose: 'deposit' | 'rent' | 'purchase' | string;
+  purpose: 'deposit' | 'rent' | 'purchase' | 'featured_listing' | string;
   payer_name: string;
   reference_number: string;
   screenshot_url?: string | null;
@@ -130,6 +152,8 @@ export interface Payment {
   status?: PaymentStatus;
   created_at?: string;
   updated_at?: string;
+  payment_method_id?: number | null;
+  payment_method?: PaymentMethod | null;
 }
 
 export interface Receipt {

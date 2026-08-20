@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import useAuth from '../../../src/hooks/useAuth'
-import { getToken } from '../../../src/lib/auth'
 import { PageLoader, ErrorAlert, EmptyState } from '../../../components/StatusStates'
+import api from '../../../src/lib/api'
 
 interface Review {
   id: number
@@ -35,7 +35,7 @@ export default function ReviewsPage() {
       router.push('/login')
       return
     }
-    if (user.role !== 'admin') {
+    if (!['admin', 'superadmin'].includes(user.role)) {
       router.push('/dashboard')
       return
     }
@@ -46,18 +46,7 @@ export default function ReviewsPage() {
     setLoading(true)
     setError(null)
     try {
-      const token = getToken()
-      const response = await fetch(
-        `http://localhost:8000/api/admin/reviews?status=${statusFilter}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      )
-      if (!response.ok) throw new Error(`API error: ${response.status}`)
-      const data = await response.json()
-      setReviews(data.data || [])
+      setReviews(await api.reviews.adminList(statusFilter))
     } catch (err: any) {
       setError(err.message || 'Failed to load reviews')
     } finally {
@@ -67,18 +56,7 @@ export default function ReviewsPage() {
 
   async function handleApprove(id: number) {
     try {
-      const token = getToken()
-      const response = await fetch(
-        `http://localhost:8000/api/admin/reviews/${id}/approve`,
-        {
-          method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      )
-      if (!response.ok) throw new Error('Failed to approve review')
+      await api.reviews.approve(id)
       setReviews(reviews.filter(r => r.id !== id))
       alert('Review approved!')
     } catch (err: any) {
@@ -89,19 +67,7 @@ export default function ReviewsPage() {
   async function handleReject(id: number, reason: string) {
     if (!reason.trim()) return
     try {
-      const token = getToken()
-      const response = await fetch(
-        `http://localhost:8000/api/admin/reviews/${id}/reject`,
-        {
-          method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ reason: reason.trim() }),
-        }
-      )
-      if (!response.ok) throw new Error('Failed to reject review')
+      await api.reviews.reject(id, reason.trim())
       setRejectingId(null)
       setRejectReason('')
       setReviews(reviews.filter(r => r.id !== id))

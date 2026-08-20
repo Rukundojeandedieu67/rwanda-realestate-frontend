@@ -11,12 +11,19 @@ import type {
   Review,
   SiteSettings,
   ManagedUser,
+  PaymentMethod,
 } from '../types/index';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
 const USE_COOKIE_AUTH = process.env.NEXT_PUBLIC_USE_COOKIE_AUTH === 'true';
 
 const API_BASE = API_URL.replace(/\/api\/?$/, '')
+function publicAssetUrl(path: unknown): string | null {
+  if (typeof path !== 'string' || path.length === 0) return null;
+  if (/^https?:\/\//.test(path)) return path;
+  return `${API_BASE}/storage/${path.replace(/^\//, '')}`;
+}
+
 let csrfPromise: Promise<void> | null = null
 function ensureCsrf(): Promise<void> {
   if (!USE_COOKIE_AUTH) return Promise.resolve()
@@ -206,6 +213,15 @@ export const api = {
       images.forEach((f) => fd.append('images[]', f));
       return request(`/properties/${id}/images`, { method: 'POST', body: fd });
     },
+    async deleteImage(id: number, imageId: number): Promise<void> {
+      return request(`/properties/${id}/images/${imageId}`, { method: 'DELETE' });
+    },
+    async setPrimaryImage(id: number, imageId: number): Promise<Property> {
+      return request(`/properties/${id}/images/${imageId}/primary`, { method: 'PATCH' });
+    },
+    async feature(id: number, form: FormData): Promise<Payment> {
+      return request(`/properties/${id}/feature`, { method: 'POST', body: form });
+    },
   },
 
   inquiries: {
@@ -242,6 +258,12 @@ export const api = {
     async update(id: number, data: Partial<Lease>): Promise<Lease> {
       return request(`/leases/${id}`, { method: 'PATCH', body: data });
     },
+    async end(id: number): Promise<Lease> {
+      return request(`/leases/${id}/end`, { method: 'PATCH' });
+    },
+    async cancel(id: number): Promise<Lease> {
+      return request(`/leases/${id}/cancel`, { method: 'PATCH' });
+    },
   },
 
   payments: {
@@ -259,6 +281,12 @@ export const api = {
     },
     async reject(id: number, reason?: string): Promise<any> {
       return request(`/admin/payments/${id}/reject`, { method: 'PATCH', body: { reason } });
+    },
+  },
+
+  paymentMethods: {
+    async public(): Promise<PaymentMethod[]> {
+      return request('/payment-methods');
     },
   },
 
@@ -281,17 +309,53 @@ export const api = {
     async listForAgent(agentId: number): Promise<Review[]> {
       return normalizeListResponse<Review>(await request<any>(`/agents/${agentId}/reviews`));
     },
+    async adminList(status = 'pending'): Promise<Review[]> {
+      return normalizeListResponse<Review>(await request<any>(`/admin/reviews?status=${encodeURIComponent(status)}`));
+    },
+    async approve(id: number): Promise<Review> {
+      return request(`/admin/reviews/${id}/approve`, { method: 'PATCH' });
+    },
+    async reject(id: number, reason: string): Promise<Review> {
+      return request(`/admin/reviews/${id}/reject`, { method: 'PATCH', body: { reason } });
+    },
   },
 
   settings: {
     async public(): Promise<SiteSettings> {
-      return request('/settings/public');
+      const settings = await request<SiteSettings>('/settings/public');
+      return {
+        ...settings,
+        hero_background_image_url: publicAssetUrl(settings.hero_background_image_path),
+      };
     },
     async get(): Promise<SiteSettings> {
-      return request('/superadmin/settings');
+      const payload = await request<Record<string, { value: unknown; is_set: boolean }>>('/superadmin/settings');
+      const settings: SiteSettings = {};
+
+      Object.entries(payload).forEach(([key, setting]) => {
+        if (key === 'smtp_password') {
+          settings.smtp_password_configured = setting.is_set;
+          return;
+        }
+
+        if (key === 'smtp_host' || key === 'smtp_port' || key === 'smtp_username') {
+          settings[`${key}_configured` as keyof SiteSettings] = setting.is_set as never;
+        }
+
+        (settings as Record<string, unknown>)[key] = setting.value;
+      });
+
+      settings.hero_background_image_url = publicAssetUrl(settings.hero_background_image_path);
+
+      return settings;
     },
-    async update(form: FormData): Promise<SiteSettings> {
-      return request('/superadmin/settings', { method: 'POST', body: form });
+    async update(settings: Partial<SiteSettings>): Promise<{ updated: SiteSettings }> {
+      return request('/superadmin/settings', { method: 'PUT', body: { settings } });
+    },
+    async uploadHeroImage(image: File): Promise<{ hero_background_image_path: string }> {
+      const form = new FormData();
+      form.append('image', image);
+      return request('/superadmin/settings/hero-image', { method: 'POST', body: form });
     },
   },
 
@@ -301,10 +365,26 @@ export const api = {
       return normalizeListResponse<ManagedUser>(await request(`/superadmin/users${qs ? `?${qs}` : ''}`));
     },
     async updateUserRole(id: number, role: 'admin' | 'user'): Promise<ManagedUser> {
-      return request(`/superadmin/users/${id}/role`, { method: 'PATCH', body: { role } });
+      const action = role === 'admin' ? 'promote-to-admin' : 'demote';
+      return request(`/superadmin/users/${id}/${action}`, { method: 'PATCH' });
     },
     async deactivateUser(id: number): Promise<ManagedUser> {
       return request(`/superadmin/users/${id}/deactivate`, { method: 'PATCH' });
+    },
+    async paymentMethods(): Promise<PaymentMethod[]> {
+      return request('/superadmin/payment-methods');
+    },
+    async createPaymentMethod(data: Omit<PaymentMethod, 'id'>): Promise<PaymentMethod> {
+      return request('/superadmin/payment-methods', { method: 'POST', body: data });
+    },
+    async updatePaymentMethod(id: number, data: Partial<Omit<PaymentMethod, 'id'>>): Promise<PaymentMethod> {
+      return request(`/superadmin/payment-methods/${id}`, { method: 'PUT', body: data });
+    },
+    async togglePaymentMethod(id: number): Promise<PaymentMethod> {
+      return request(`/superadmin/payment-methods/${id}/toggle`, { method: 'PATCH' });
+    },
+    async deletePaymentMethod(id: number): Promise<void> {
+      return request(`/superadmin/payment-methods/${id}`, { method: 'DELETE' });
     },
   },
 };

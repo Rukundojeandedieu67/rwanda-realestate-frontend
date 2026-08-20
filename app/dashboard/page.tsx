@@ -5,6 +5,7 @@ import useAuth from '../../src/hooks/useAuth'
 import type { Favorite, Inquiry, Property, Payment, Lease } from '../../src/types/index'
 import api from '../../src/lib/api'
 import { PageLoader, ErrorAlert, EmptyState } from '../../components/StatusStates'
+import PaymentMethodCards from '../../components/PaymentMethodCards'
 
 function canManageProperty(user: any, property?: Partial<Property> | null) {
   if (!user || !property) return false
@@ -43,6 +44,8 @@ export default function DashboardPage() {
   } else if (user.role === 'owner' || user.role === 'agent') {
     return <OwnerAgentDashboard user={user} />
   } else if (user.role === 'admin') {
+    return <AdminDashboard user={user} />
+  } else if (user.role === 'superadmin') {
     return <AdminDashboard user={user} />
   }
 
@@ -101,6 +104,17 @@ function BuyerRenterDashboard({ user }: { user: any }) {
     } finally {
       setDownloading(prev => ({ ...prev, [idKey]: false }))
     }
+  }
+
+  async function handleOpen(payment: Payment, type: 'receipt' | 'contract') {
+    const targetId = type === 'receipt' ? payment.receipt_id : payment.contract_id
+    if (!targetId) return
+    try {
+      const blob = type === 'receipt' ? await api.receipts.download(targetId) : await api.contracts.download(targetId)
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank', 'noopener,noreferrer')
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000)
+    } catch (err: any) { alert(err.message || `Failed to open ${type}`) }
   }
 
   if (loading) return <PageLoader label="Loading your dashboard..." />
@@ -246,24 +260,12 @@ function BuyerRenterDashboard({ user }: { user: any }) {
                   {payment.status === 'approved' && (
                     <div className="flex flex-col gap-2 md:items-end">
                       {payment.receipt_id ? (
-                        <button
-                          onClick={() => handleDownload(payment, 'receipt')}
-                          disabled={Boolean(downloading[`${payment.id}-receipt`])}
-                          className="inline-flex items-center rounded-lg border border-nzu-teal bg-nzu-teal/5 px-3 py-2 text-sm font-medium text-nzu-teal transition hover:bg-nzu-teal/10 disabled:opacity-60"
-                        >
-                          📄 {downloading[`${payment.id}-receipt`] ? 'Preparing...' : 'Download Receipt'}
-                        </button>
+                        <div className="flex gap-2"><button onClick={() => handleDownload(payment, 'receipt')} disabled={Boolean(downloading[`${payment.id}-receipt`])} className="inline-flex items-center rounded-lg border border-nzu-teal bg-nzu-teal/5 px-3 py-2 text-sm font-medium text-nzu-teal transition hover:bg-nzu-teal/10 disabled:opacity-60">📄 {downloading[`${payment.id}-receipt`] ? 'Preparing...' : 'Download'}</button><button onClick={() => handleOpen(payment, 'receipt')} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">Open</button></div>
                       ) : (
                         <span className="text-xs text-slate-500">Receipt pending</span>
                       )}
                       {payment.contract_id ? (
-                        <button
-                          onClick={() => handleDownload(payment, 'contract')}
-                          disabled={Boolean(downloading[`${payment.id}-contract`])}
-                          className="inline-flex items-center rounded-lg border border-slate-400 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-60"
-                        >
-                          📋 {downloading[`${payment.id}-contract`] ? 'Preparing...' : 'Download Contract'}
-                        </button>
+                        <div className="flex gap-2"><button onClick={() => handleDownload(payment, 'contract')} disabled={Boolean(downloading[`${payment.id}-contract`])} className="inline-flex items-center rounded-lg border border-slate-400 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-60">📋 {downloading[`${payment.id}-contract`] ? 'Preparing...' : 'Download'}</button><button onClick={() => handleOpen(payment, 'contract')} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">Open</button></div>
                       ) : (
                         <span className="text-xs text-slate-500">Contract pending</span>
                       )}
@@ -290,6 +292,12 @@ function OwnerAgentDashboard({ user }: { user: any }) {
   const [error, setError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [flashMessage, setFlashMessage] = useState<string | null>(null)
+  const [featureProperty, setFeatureProperty] = useState<Property | null>(null)
+  const [featureMethodId, setFeatureMethodId] = useState('')
+  const [featurePayer, setFeaturePayer] = useState(user.name || '')
+  const [featureReference, setFeatureReference] = useState('')
+  const [featureScreenshot, setFeatureScreenshot] = useState<File | null>(null)
+  const [featureSettings, setFeatureSettings] = useState<{ enabled?: boolean; price?: string | number; currency?: string; duration?: string | number }>({})
 
   function getStatusBadgeClass(status?: string) {
     if (status === 'verified') return 'bg-green-100 text-green-800 border border-green-200'
@@ -307,10 +315,12 @@ function OwnerAgentDashboard({ user }: { user: any }) {
     setLoading(true)
     setError(null)
     try {
-      const [props, leasesResult] = await Promise.all([
+      const [props, leasesResult, publicSettings] = await Promise.all([
         api.properties.list({ per_page: '50' }),
         api.leases.list(),
+        api.settings.public(),
       ])
+      setFeatureSettings({ enabled: publicSettings.featured_listing_enabled, price: publicSettings.featured_listing_price, currency: publicSettings.featured_listing_currency, duration: publicSettings.featured_listing_duration_days })
 
       const allProps = props.data || []
       const ownedProps = allProps.filter(prop => canManageProperty(user, prop))
@@ -376,19 +386,41 @@ function OwnerAgentDashboard({ user }: { user: any }) {
       setTenantId('')
       await loadData()
     } catch (err: any) {
-      setLeaseError(err.message || 'Failed to create lease.')
+      setLeaseError(/already has an active lease/i.test(String(err.message || '')) ? 'This property already has an active lease. End or cancel it before creating another.' : (err.message || 'Failed to create lease.'))
     } finally {
       setLeaseLoading(false)
     }
   }
 
   async function handleLeaseStatusUpdate(id: number, status: 'active' | 'ended' | 'cancelled') {
+    if (!window.confirm(`Are you sure you want to ${status === 'ended' ? 'end' : 'cancel'} this lease?`)) return
     try {
-      await api.leases.update(id, { status })
+      if (status === 'ended') await api.leases.end(id)
+      else if (status === 'cancelled') await api.leases.cancel(id)
+      else await api.leases.update(id, { status })
       setLeases(prev => prev.map(lease => lease.id === id ? { ...lease, status } : lease))
     } catch (err: any) {
       setActionError(err.message || 'Failed to update lease status')
     }
+  }
+
+  async function submitFeature(e: React.FormEvent) {
+    e.preventDefault()
+    if (!featureProperty || !featureMethodId || !featurePayer.trim() || !featureReference.trim()) return
+    setActionError(null)
+    try {
+      const form = new FormData()
+      form.append('payment_method_id', featureMethodId)
+      form.append('payer_name', featurePayer)
+      form.append('reference_number', featureReference)
+      if (featureScreenshot) form.append('screenshot', featureScreenshot)
+      await api.properties.feature(featureProperty.id, form)
+      setFeatureProperty(null)
+      setFeatureReference('')
+      setFeatureScreenshot(null)
+      setFlashMessage('Featured listing payment submitted for review.')
+      await loadData()
+    } catch (err: any) { setActionError(err.message || 'Failed to submit featured listing payment') }
   }
 
   if (loading) return <PageLoader label="Loading your dashboard..." />
@@ -531,6 +563,7 @@ function OwnerAgentDashboard({ user }: { user: any }) {
                           Edit
                         </a>
                       )}
+                      {prop.status === 'verified' && featureSettings.enabled && (prop.is_currently_featured ? <span className="rounded-lg border border-nzu-terracotta/30 bg-nzu-terracotta/10 px-3 py-2 text-sm font-semibold text-nzu-terracotta">⭐ Featured until {prop.featured_until ? new Date(prop.featured_until).toLocaleDateString() : 'soon'}</span> : <button onClick={() => setFeatureProperty(prop)} className="rounded-lg border border-nzu-terracotta bg-nzu-terracotta/5 px-3 py-2 text-sm font-semibold text-nzu-terracotta">⭐ Feature this listing · {featureSettings.currency} {Number(featureSettings.price || 0).toLocaleString()}</button>)}
                       <button
                         onClick={() => handleDelete(prop.id)}
                         className="inline-flex rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
@@ -545,6 +578,8 @@ function OwnerAgentDashboard({ user }: { user: any }) {
           </div>
         )}
       </section>
+
+      {featureProperty && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><form onSubmit={submitFeature} className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"><div className="flex items-start justify-between gap-4"><div><h2 className="text-2xl font-bold text-slate-900">Feature {featureProperty.title}</h2><p className="mt-1 text-sm text-slate-600">{featureSettings.currency} {Number(featureSettings.price || 0).toLocaleString()} for {featureSettings.duration || 7} days</p></div><button type="button" onClick={() => setFeatureProperty(null)} className="text-2xl text-slate-500">×</button></div><div className="mt-5"><h3 className="mb-3 font-semibold text-slate-900">Choose where you paid</h3><PaymentMethodCards value={featureMethodId} onChange={setFeatureMethodId} /></div><div className="mt-5 grid gap-4 sm:grid-cols-2"><label className="text-sm font-semibold text-slate-700">Payer name<input required value={featurePayer} onChange={e => setFeaturePayer(e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2" /></label><label className="text-sm font-semibold text-slate-700">Reference number<input required value={featureReference} onChange={e => setFeatureReference(e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2" /></label><label className="text-sm font-semibold text-slate-700 sm:col-span-2">Screenshot<input type="file" accept="image/*" onChange={e => setFeatureScreenshot(e.target.files?.[0] || null)} className="mt-1 block w-full text-sm" /></label></div><div className="mt-6 flex justify-end gap-3"><button type="button" onClick={() => setFeatureProperty(null)} className="rounded-lg border px-4 py-2">Cancel</button><button type="submit" className="rounded-lg bg-nzu-terracotta px-4 py-2 font-semibold text-white">Submit payment</button></div></form></div>}
 
       {/* Leases Section */}
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -585,19 +620,10 @@ function OwnerAgentDashboard({ user }: { user: any }) {
                       }`}>
                         {lease.status}
                       </span>
-                      <select
-                        value={lease.status}
-                        onChange={e =>
-                          handleLeaseStatusUpdate(lease.id, e.target.value as 'active' | 'ended' | 'cancelled')
-                        }
-                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm transition focus:border-nzu-teal focus:outline-none"
-                      >
-                        <option value="active">Active</option>
-                        <option value="ended">Ended</option>
-                        <option value="cancelled">Cancelled</option>
-                      </select>
+                      {lease.status === 'active' && <><button onClick={() => handleLeaseStatusUpdate(lease.id, 'ended')} className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm">End Lease</button><button onClick={() => handleLeaseStatusUpdate(lease.id, 'cancelled')} className="rounded-lg border border-red-200 px-3 py-1.5 text-sm text-red-700">Cancel Lease</button></>}
                     </div>
                   </div>
+                  {lease.payments && lease.payments.length > 0 && <div className="mt-3 border-t border-slate-200 pt-3 text-sm text-slate-600"><strong>Payment history:</strong> {lease.payments.map(payment => `${payment.currency} ${payment.amount.toLocaleString()} (${payment.status || 'pending'})`).join(' · ')}</div>}
                 </div>
               )
             })}

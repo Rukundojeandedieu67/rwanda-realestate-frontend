@@ -132,6 +132,8 @@ export default function PropertyDetailPage() {
   }
 
   const images = property.images || []
+  const primaryImage = images.find(image => image.is_primary)
+  const orderedImages = primaryImage ? [primaryImage, ...images.filter(image => image.id !== primaryImage.id)] : images
   const showResidentialDetailFields = property.category === 'residential' || property.category === 'short_stay'
   const showSizeField = property.category !== 'land'
 
@@ -139,12 +141,12 @@ export default function PropertyDetailPage() {
     <div className="max-w-4xl mx-auto">
       {/* Image Gallery */}
       <div className="mb-6">
-        {images.length > 0 ? (
+        {orderedImages.length > 0 ? (
           <div className="bg-gray-100 rounded overflow-hidden">
-            <img src={images[currentImageIndex].url} alt={property.title} className="w-full h-96 object-cover" />
-            {images.length > 1 && (
+            <img src={orderedImages[currentImageIndex].url} alt={property.title} className="w-full h-96 object-cover" />
+            {orderedImages.length > 1 && (
               <div className="flex gap-2 p-3 bg-white justify-center">
-                {images.map((img, idx) => (
+                {orderedImages.map((img, idx) => (
                   <button
                     key={idx}
                     onClick={() => setCurrentImageIndex(idx)}
@@ -184,6 +186,7 @@ export default function PropertyDetailPage() {
                 {property.status}
               </span>
             )}
+            {property.is_currently_featured && <span className="bg-nzu-terracotta text-white px-3 py-1 rounded">⭐ Featured</span>}
           </div>
 
           <p className="text-gray-700 mb-6">{property.description}</p>

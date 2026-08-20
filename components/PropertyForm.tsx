@@ -1,6 +1,8 @@
 "use client"
 
 import React, { useEffect, useState } from 'react'
+import type { PropertyImage } from '../src/types/index'
+import api from '../src/lib/api'
 
 export type PropertyCategory = 'residential' | 'commercial' | 'land' | 'short_stay'
 export type PropertyListingType = 'sale' | 'rent' | 'short_stay'
@@ -41,13 +43,17 @@ const defaultValues: PropertyFormValues = {
 
 export default function PropertyForm({
   initialValues,
+  initialImages,
+  propertyId,
   onSubmit,
   submitLabel = 'Save Property',
   loading = false,
   resubmitNotice,
 }: {
   initialValues?: Partial<PropertyFormValues>
-  onSubmit: (values: PropertyFormValues) => Promise<void> | void
+  initialImages?: PropertyImage[]
+  propertyId?: number
+  onSubmit: (values: PropertyFormValues, images: File[]) => Promise<void> | void
   submitLabel?: string
   loading?: boolean
   resubmitNotice?: string
@@ -56,9 +62,13 @@ export default function PropertyForm({
     ...defaultValues,
     ...initialValues,
   })
+  const [images, setImages] = useState<File[]>([])
+  const [existingImages, setExistingImages] = useState<PropertyImage[]>(initialImages || [])
+  const [imageBusy, setImageBusy] = useState(false)
 
   useEffect(() => {
     setForm({ ...defaultValues, ...initialValues })
+    setExistingImages(initialImages || [])
   }, [initialValues])
 
   function updateField<K extends keyof PropertyFormValues>(field: K, value: PropertyFormValues[K]) {
@@ -67,7 +77,29 @@ export default function PropertyForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    await onSubmit(form)
+    await onSubmit(form, images)
+  }
+
+  async function deleteImage(imageId: number) {
+    if (!propertyId || !window.confirm('Delete this image?')) return
+    setImageBusy(true)
+    try {
+      await api.properties.deleteImage(propertyId, imageId)
+      setExistingImages(current => current.filter(image => image.id !== imageId))
+    } finally {
+      setImageBusy(false)
+    }
+  }
+
+  async function setPrimary(imageId: number) {
+    if (!propertyId) return
+    setImageBusy(true)
+    try {
+      await api.properties.setPrimaryImage(propertyId, imageId)
+      setExistingImages(current => current.map(image => ({ ...image, is_primary: image.id === imageId })))
+    } finally {
+      setImageBusy(false)
+    }
   }
 
   return (
@@ -242,6 +274,16 @@ export default function PropertyForm({
             />
           </label>
         )}
+      </div>
+
+      <div className="border-t border-slate-200 pt-5">
+        <div className="mb-3 flex items-center justify-between">
+          <div><h2 className="font-semibold text-slate-900">Property images</h2><p className="text-sm text-slate-500">The first image is used until you choose a primary image.</p></div>
+          {imageBusy && <span className="text-sm text-slate-500">Updating image...</span>}
+        </div>
+        {existingImages.length > 0 && <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">{existingImages.map(image => <div key={image.id} className="relative overflow-hidden rounded-lg border border-slate-200"><img src={image.url} alt="Property" className="h-28 w-full object-cover" /><div className="flex gap-1 p-2 text-xs"><button type="button" onClick={() => void setPrimary(image.id)} disabled={imageBusy || image.is_primary} className="flex-1 rounded border px-1 py-1 disabled:opacity-50">{image.is_primary ? 'Primary' : 'Set primary'}</button><button type="button" onClick={() => void deleteImage(image.id)} disabled={imageBusy} className="rounded border border-red-200 px-2 py-1 text-red-700">Delete</button></div></div>)}</div>}
+        <input type="file" accept="image/*" multiple onChange={event => setImages(Array.from(event.target.files || []))} className="block w-full text-sm text-slate-600" />
+        {images.length > 0 && <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">{images.map(file => <img key={`${file.name}-${file.lastModified}`} src={URL.createObjectURL(file)} alt={file.name} className="h-20 w-full rounded object-cover" />)}</div>}
       </div>
 
       <div className="flex justify-end">

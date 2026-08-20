@@ -23,7 +23,7 @@ export default function NewPropertyPage() {
     return null
   }
 
-  async function handleSubmit(form: PropertyFormValues) {
+  async function handleSubmit(form: PropertyFormValues, images: File[]) {
     setSaving(true)
     setError(null)
     try {
@@ -49,7 +49,8 @@ export default function NewPropertyPage() {
       delete payload.owner_id
       delete payload.agent_id
 
-      await api.properties.create(payload)
+      const property = await api.properties.create(payload)
+      if (images.length) await api.properties.uploadImages(property.id, images)
       sessionStorage.setItem('property_created_notice', 'Property created and pending review')
       router.push('/dashboard')
     } catch (err: any) {
