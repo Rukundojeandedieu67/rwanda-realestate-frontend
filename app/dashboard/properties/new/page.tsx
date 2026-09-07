@@ -44,10 +44,9 @@ export default function NewPropertyPage() {
         size_sqm: form.size_sqm ? Number(form.size_sqm) : null,
       }
 
-      // The backend derives owner_id / agent_id from the authenticated user.
-      // Do not send these fields from the frontend for regular owner/agent users.
-      delete payload.owner_id
-      delete payload.agent_id
+      if (user.role === 'agent' && form.owner_id) {
+        payload.owner_id = Number(form.owner_id)
+      }
 
       const property = await api.properties.create(payload)
       if (images.length) await api.properties.uploadImages(property.id, images)
@@ -76,7 +75,7 @@ export default function NewPropertyPage() {
         <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
       )}
 
-      <PropertyForm onSubmit={handleSubmit} submitLabel="Create Property" loading={saving} />
+      <PropertyForm showOwnerSelector={user.role === 'agent'} onSubmit={handleSubmit} submitLabel="Create Property" loading={saving} />
     </div>
   )
 }

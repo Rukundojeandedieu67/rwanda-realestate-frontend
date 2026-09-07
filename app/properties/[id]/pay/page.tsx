@@ -8,7 +8,7 @@ import useAuth from '../../../../src/hooks/useAuth'
 import type { Property, Payment, PaymentMethod } from '../../../../src/types/index'
 import PaymentMethodCards from '../../../../components/PaymentMethodCards'
 
-const PAYMENT_SLA_HOURS = 24
+const PAYMENT_SLA_HOURS = 3
 
 export default function PropertyPayPage() {
   const params = useParams()
@@ -26,13 +26,21 @@ export default function PropertyPayPage() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(true)
 
-  const [amount, setAmount] = useState('')
-  const [currency, setCurrency] = useState('RWF')
-  const [purpose, setPurpose] = useState('deposit')
   const [payerName, setPayerName] = useState('')
   const [referenceNumber, setReferenceNumber] = useState('')
   const [screenshot, setScreenshot] = useState<File | null>(null)
   const [paymentMethodId, setPaymentMethodId] = useState('')
+  const [durationUnit, setDurationUnit] = useState<'days' | 'hours'>('days')
+  const [durationQuantity, setDurationQuantity] = useState('1')
+  const [stayStartAt, setStayStartAt] = useState('')
+  const [contractDetails, setContractDetails] = useState({
+    lessor_full_name: '', lessor_id_number: '', lessor_address: '',
+    lessee_full_name: '', lessee_id_number: '', lessee_address: '',
+    property_description: '', upi: '', size: '', boundaries: '', tenure_type: '',
+    lease_term: '', renewal_terms: '', payment_schedule: 'Monthly in advance', late_payment_consequences: '',
+    security_deposit: '', notice_period: '30 days', maintenance_terms: '',
+    subletting_terms: '', dispute_resolution: 'Good-faith negotiation, then competent Rwandan courts.',
+  })
 
   useEffect(() => {
     async function loadProperty() {
@@ -42,7 +50,6 @@ export default function PropertyPayPage() {
       try {
         const prop = await api.properties.get(propertyId)
         setProperty(prop)
-        setAmount(String(prop.price || ''))
       } catch (err: any) {
         const status = Number(err?.status)
         const message = String(err?.message || '')
@@ -94,8 +101,13 @@ export default function PropertyPayPage() {
       return
     }
 
-    if (!amount || !referenceNumber.trim() || !payerName.trim() || !paymentMethodId) {
-      setSubmitError('Payment method, amount, payer name, and reference number are required.')
+    if (!referenceNumber.trim() || !payerName.trim() || !paymentMethodId) {
+      setSubmitError('Payment method, payer name, and reference number are required.')
+      return
+    }
+
+    if (property?.listing_type === 'short_stay' && (!stayStartAt || Number(durationQuantity) < 1)) {
+      setSubmitError('Choose a start time and specify at least one day or hour.')
       return
     }
 
@@ -104,20 +116,21 @@ export default function PropertyPayPage() {
 
     try {
       const formData = new FormData()
-      formData.append('property_id', String(propertyId))
-      formData.append('amount', String(amount))
-      formData.append('currency', currency)
-      formData.append('purpose', purpose)
       formData.append('payment_method_id', paymentMethodId)
       formData.append('payer_name', payerName)
       formData.append('reference_number', referenceNumber)
+      formData.append('contract_details', JSON.stringify(contractDetails))
+      if (property.listing_type === 'short_stay') {
+        formData.append('duration_unit', durationUnit)
+        formData.append('duration_quantity', durationQuantity)
+        formData.append('stay_start_at', new Date(stayStartAt).toISOString())
+      }
       if (screenshot) {
         formData.append('screenshot', screenshot)
       }
 
-      const payment = await api.payments.submit(formData)
+      const payment = await api.properties.initiateTransaction(propertyId, formData)
       setSubmittedPayment(payment)
-      setPurpose('deposit')
       setReferenceNumber('')
       setPayerName('')
       setScreenshot(null)
@@ -159,21 +172,36 @@ export default function PropertyPayPage() {
     return <div className="text-center py-12">Property not found</div>
   }
 
+  const transactionType = property.listing_type === 'sale' ? 'Purchase' : property.listing_type === 'short_stay' ? 'Short stay' : 'Rent'
+  const isShortStay = property.listing_type === 'short_stay'
+  const totalAmount = isShortStay ? property.price * Math.max(1, Number(durationQuantity) || 1) : property.price
+  const isOwnListing = Boolean(user && (Number(property.owner_id ?? property.owner?.id) === Number(user.id) || Number(property.agent_id ?? property.agent?.id) === Number(user.id)))
+
+  if (isOwnListing || property.is_available_for_transaction === false) {
+    return (
+      <div className="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+        <h1 className="text-2xl font-bold text-slate-900">Transaction unavailable</h1>
+        <p className="mt-3 text-slate-600">{isOwnListing ? 'This is your listing.' : 'This property has already been rented/sold.'}</p>
+        <Link href={`/properties/${property.id}`} className="mt-6 inline-flex rounded-lg bg-nzu-teal px-4 py-2 font-semibold text-white">Back to property</Link>
+      </div>
+    )
+  }
+
   if (submittedPayment) {
     return (
       <div className="max-w-2xl mx-auto bg-white border rounded shadow p-6">
         <div className="text-center mb-6">
           <div className="text-4xl mb-2">✅</div>
-          <h1 className="text-3xl font-bold">Payment submitted</h1>
+          <h1 className="text-3xl font-bold">Your {transactionType.toLowerCase()} payment is submitted</h1>
         </div>
 
         <div className="bg-green-50 border border-green-200 rounded p-4 mb-6 text-sm text-green-900">
-          Your payment request was received and is now pending admin review. We aim to confirm it within the SLA deadline of <strong>{slaDeadline}</strong>.
+          Your payment is submitted and will be reviewed within {PAYMENT_SLA_HOURS} hours, by <strong>{slaDeadline}</strong>. You&apos;ll be able to download your receipt and contract once approved.
         </div>
 
         <div className="space-y-2 text-sm text-gray-700">
           <p><strong>Property:</strong> {property.title}</p>
-          <p><strong>Amount:</strong> {property.currency === 'RWF' ? 'RWF ' : '$'}{submittedPayment.amount.toLocaleString()}</p>
+          <p><strong>Amount:</strong> {property.currency === 'RWF' ? 'RWF ' : '$'}{property.price.toLocaleString()}</p>
           <p><strong>Reference:</strong> {submittedPayment.reference_number}</p>
           <p><strong>Status:</strong> {submittedPayment.status || 'pending'}</p>
         </div>
@@ -198,7 +226,32 @@ export default function PropertyPayPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <section className="bg-white border rounded shadow p-6">
-          <h1 className="text-3xl font-bold mb-4">Pay for {property.title}</h1>
+          <h1 className="text-3xl font-bold mb-4">{transactionType} {property.title}</h1>
+          <div className="mb-6 rounded-xl border border-nzu-terracotta/30 bg-nzu-terracotta/5 p-4">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-nzu-terracotta">Transaction summary</p>
+            <p className="mt-2 text-lg font-bold text-slate-900">{transactionType} transaction</p>
+            <p className="mt-1 text-sm text-slate-600">{property.title}</p>
+            <p className="mt-3 text-2xl font-black text-nzu-teal">{property.currency === 'RWF' ? 'RWF ' : '$'}{totalAmount.toLocaleString()}</p>
+            <p className="mt-1 text-xs text-slate-500">{isShortStay ? `Price per ${durationUnit}. Total updates as you change the stay length.` : 'The amount and currency are locked to the verified property listing.'}</p>
+          </div>
+          {isShortStay && <div className="mb-6 rounded-xl border border-nzu-teal/20 bg-nzu-teal/5 p-4">
+            <h2 className="font-semibold text-slate-900">Stay duration</h2>
+            <p className="mt-1 text-sm text-slate-600">Choose when the stay starts and whether you need days or hours.</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <label className="text-sm font-medium text-slate-700 sm:col-span-2">Start date and time
+                <input type="datetime-local" value={stayStartAt} onChange={e => setStayStartAt(e.target.value)} min={new Date().toISOString().slice(0, 16)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2" required />
+              </label>
+              <label className="text-sm font-medium text-slate-700">Unit
+                <select value={durationUnit} onChange={e => setDurationUnit(e.target.value as 'days' | 'hours')} className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2">
+                  <option value="days">Days</option>
+                  <option value="hours">Hours</option>
+                </select>
+              </label>
+              <label className="text-sm font-medium text-slate-700">Number of {durationUnit}
+                <input type="number" min="1" max="365" value={durationQuantity} onChange={e => setDurationQuantity(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2" required />
+              </label>
+            </div>
+          </div>}
           <div className="bg-amber-50 border border-amber-200 rounded p-4 mb-6">
             <h2 className="font-semibold mb-2">Payment method</h2>
             {paymentMethodsLoading ? <p className="text-sm text-gray-700">Loading payment methods...</p> : <PaymentMethodCards value={paymentMethodId} onChange={setPaymentMethodId} />}
@@ -206,52 +259,13 @@ export default function PropertyPayPage() {
 
           <div className="space-y-3 text-sm text-gray-700">
             <p><strong>Property:</strong> {property.title}</p>
-            <p><strong>Price:</strong> {property.currency === 'RWF' ? 'RWF ' : '$'}{property.price.toLocaleString()}</p>
-            <p><strong>Payment SLA:</strong> confirmation expected within 24 hours.</p>
+            <p><strong>Payment SLA:</strong> admin review within {PAYMENT_SLA_HOURS} hours.</p>
           </div>
         </section>
 
         <section className="bg-gray-50 border rounded shadow p-6">
           <h2 className="text-2xl font-semibold mb-4">Submit payment proof</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <label className="block text-sm font-medium text-gray-700">
-                Amount
-                <input
-                  type="number"
-                  min="1"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="mt-1 w-full border rounded p-2"
-                  required
-                />
-              </label>
-              <label className="block text-sm font-medium text-gray-700">
-                Currency
-                <select
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value)}
-                  className="mt-1 w-full border rounded p-2"
-                >
-                  <option value="RWF">RWF</option>
-                  <option value="USD">USD</option>
-                </select>
-              </label>
-            </div>
-
-            <label className="block text-sm font-medium text-gray-700">
-              Purpose
-              <select
-                value={purpose}
-                onChange={(e) => setPurpose(e.target.value)}
-                className="mt-1 w-full border rounded p-2"
-              >
-                <option value="deposit">deposit</option>
-                <option value="purchase">purchase</option>
-                <option value="rent">rent</option>
-              </select>
-            </label>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <label className="block text-sm font-medium text-gray-700">
                 Payer name
@@ -286,6 +300,36 @@ export default function PropertyPayPage() {
                 className="mt-1 w-full border rounded p-2"
               />
             </label>
+
+            {property.listing_type === 'rent' && <div className="space-y-5 rounded-xl border border-slate-200 bg-white p-5">
+              <div><h2 className="text-lg font-bold text-slate-900">Legal agreement details</h2><p className="mt-1 text-sm text-slate-600">These details are saved with the transaction and used to prepare the bilingual lease. Leave unknown items blank; the PDF will mark them for completion.</p></div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="text-sm font-semibold text-slate-700">Lessor full name<input value={contractDetails.lessor_full_name} onChange={e => setContractDetails(v => ({ ...v, lessor_full_name: e.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2" placeholder="[TO BE COMPLETED]" /></label>
+                <label className="text-sm font-semibold text-slate-700">Lessor ID/passport<input value={contractDetails.lessor_id_number} onChange={e => setContractDetails(v => ({ ...v, lessor_id_number: e.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2" placeholder="[TO BE COMPLETED]" /></label>
+                <label className="text-sm font-semibold text-slate-700 sm:col-span-2">Lessor address<input value={contractDetails.lessor_address} onChange={e => setContractDetails(v => ({ ...v, lessor_address: e.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2" placeholder="[TO BE COMPLETED]" /></label>
+                <label className="text-sm font-semibold text-slate-700">Lessee full name<input value={contractDetails.lessee_full_name} onChange={e => setContractDetails(v => ({ ...v, lessee_full_name: e.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2" placeholder={user?.name || '[TO BE COMPLETED]'} /></label>
+                <label className="text-sm font-semibold text-slate-700">Lessee ID/passport<input value={contractDetails.lessee_id_number} onChange={e => setContractDetails(v => ({ ...v, lessee_id_number: e.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2" placeholder="[TO BE COMPLETED]" /></label>
+                <label className="text-sm font-semibold text-slate-700 sm:col-span-2">Lessee address<input value={contractDetails.lessee_address} onChange={e => setContractDetails(v => ({ ...v, lessee_address: e.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2" placeholder="[TO BE COMPLETED]" /></label>
+              </div>
+              <div className="border-t border-slate-200 pt-4"><h3 className="mb-3 font-semibold text-slate-900">Property and tenure</h3><div className="grid gap-4 sm:grid-cols-2">
+                <label className="text-sm font-semibold text-slate-700 sm:col-span-2">Property description<input value={contractDetails.property_description} onChange={e => setContractDetails(v => ({ ...v, property_description: e.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2" placeholder={property.title} /></label>
+                <label className="text-sm font-semibold text-slate-700">UPI / parcel identifier<input value={contractDetails.upi} onChange={e => setContractDetails(v => ({ ...v, upi: e.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2" placeholder="[TO BE COMPLETED]" /></label>
+                <label className="text-sm font-semibold text-slate-700">Size<input value={contractDetails.size} onChange={e => setContractDetails(v => ({ ...v, size: e.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2" placeholder="[TO BE COMPLETED]" /></label>
+                <label className="text-sm font-semibold text-slate-700 sm:col-span-2">Boundaries<input value={contractDetails.boundaries} onChange={e => setContractDetails(v => ({ ...v, boundaries: e.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2" placeholder="North / South / East / West: [TO BE COMPLETED]" /></label>
+                <label className="text-sm font-semibold text-slate-700 sm:col-span-2">Tenure type<input value={contractDetails.tenure_type} onChange={e => setContractDetails(v => ({ ...v, tenure_type: e.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2" placeholder="Freehold, emphyteutic lease, condominium, or [TO BE COMPLETED]" /></label>
+              </div></div>
+              <div className="border-t border-slate-200 pt-4"><h3 className="mb-3 font-semibold text-slate-900">Lease terms</h3><div className="grid gap-4 sm:grid-cols-2">
+                <label className="text-sm font-semibold text-slate-700">Duration<input value={contractDetails.lease_term} onChange={e => setContractDetails(v => ({ ...v, lease_term: e.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2" placeholder="e.g. 12 months" /></label>
+                <label className="text-sm font-semibold text-slate-700">Security deposit<input value={contractDetails.security_deposit} onChange={e => setContractDetails(v => ({ ...v, security_deposit: e.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2" placeholder="Amount or [TO BE COMPLETED]" /></label>
+                <label className="text-sm font-semibold text-slate-700">Payment schedule<input value={contractDetails.payment_schedule} onChange={e => setContractDetails(v => ({ ...v, payment_schedule: e.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
+                <label className="text-sm font-semibold text-slate-700">Late payment consequences<input value={contractDetails.late_payment_consequences} onChange={e => setContractDetails(v => ({ ...v, late_payment_consequences: e.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2" placeholder="[TO BE COMPLETED]" /></label>
+                <label className="text-sm font-semibold text-slate-700">Notice period<input value={contractDetails.notice_period} onChange={e => setContractDetails(v => ({ ...v, notice_period: e.target.value }))} className="mt-1 w-full rounded-lg border px-3 py-2" /></label>
+                <label className="text-sm font-semibold text-slate-700 sm:col-span-2">Renewal terms<textarea value={contractDetails.renewal_terms} onChange={e => setContractDetails(v => ({ ...v, renewal_terms: e.target.value }))} className="mt-1 h-20 w-full rounded-lg border px-3 py-2" placeholder="Automatic renewal applies if the tenant remains without objection after expiry, unless proper notice is given." /></label>
+                <label className="text-sm font-semibold text-slate-700 sm:col-span-2">Maintenance and repairs<textarea value={contractDetails.maintenance_terms} onChange={e => setContractDetails(v => ({ ...v, maintenance_terms: e.target.value }))} className="mt-1 h-20 w-full rounded-lg border px-3 py-2" placeholder="[TO BE COMPLETED]" /></label>
+                <label className="text-sm font-semibold text-slate-700 sm:col-span-2">Subletting rules<textarea value={contractDetails.subletting_terms} onChange={e => setContractDetails(v => ({ ...v, subletting_terms: e.target.value }))} className="mt-1 h-20 w-full rounded-lg border px-3 py-2" placeholder="No subletting without written consent. Agricultural/forestry subleases over 5 years require registration." /></label>
+                <label className="text-sm font-semibold text-slate-700 sm:col-span-2">Dispute resolution<textarea value={contractDetails.dispute_resolution} onChange={e => setContractDetails(v => ({ ...v, dispute_resolution: e.target.value }))} className="mt-1 h-20 w-full rounded-lg border px-3 py-2" /></label>
+              </div></div>
+            </div>}
 
             {submitError && <div className="text-red-600 text-sm">{submitError}</div>}
 

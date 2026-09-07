@@ -51,6 +51,7 @@ export default function EditPropertyPage() {
         bedrooms: prop.bedrooms !== null && prop.bedrooms !== undefined ? String(prop.bedrooms) : '',
         bathrooms: prop.bathrooms !== null && prop.bathrooms !== undefined ? String(prop.bathrooms) : '',
         size_sqm: prop.size_sqm !== null && prop.size_sqm !== undefined ? String(prop.size_sqm) : '',
+        owner_id: prop.owner_id ? String(prop.owner_id) : '',
       })
     } catch (err: any) {
       setError(err.message || 'Failed to load property')
@@ -63,7 +64,7 @@ export default function EditPropertyPage() {
     setSaving(true)
     setError(null)
     try {
-      await api.properties.update(propertyId, {
+      const payload: Record<string, any> = {
         title: form.title,
         description: form.description,
         category: form.category,
@@ -79,7 +80,13 @@ export default function EditPropertyPage() {
         bathrooms: form.bathrooms ? Number(form.bathrooms) : null,
         size_sqm: form.size_sqm ? Number(form.size_sqm) : null,
         status: 'pending',
-      })
+      }
+
+      if (user?.role === 'agent' && form.owner_id) {
+        payload.owner_id = Number(form.owner_id)
+      }
+
+      await api.properties.update(propertyId, payload)
       if (images.length) await api.properties.uploadImages(propertyId, images)
       router.push('/dashboard')
     } catch (err: any) {
@@ -118,6 +125,7 @@ export default function EditPropertyPage() {
           submitLabel="Update Property"
           loading={saving}
           resubmitNotice="Editing will resubmit this property for verification."
+          showOwnerSelector={user?.role === 'agent'}
         />
       )}
     </div>

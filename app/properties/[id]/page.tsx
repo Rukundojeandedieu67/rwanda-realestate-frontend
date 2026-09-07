@@ -136,6 +136,8 @@ export default function PropertyDetailPage() {
   const orderedImages = primaryImage ? [primaryImage, ...images.filter(image => image.id !== primaryImage.id)] : images
   const showResidentialDetailFields = property.category === 'residential' || property.category === 'short_stay'
   const showSizeField = property.category !== 'land'
+  const isOwnListing = Boolean(user && (Number(property.owner_id ?? property.owner?.id) === Number(user.id) || Number(property.agent_id ?? property.agent?.id) === Number(user.id)))
+  const transactionLabel = property.listing_type === 'rent' ? 'Rent This Property' : property.listing_type === 'sale' ? 'Buy This Property' : 'Book This Stay'
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -236,12 +238,20 @@ export default function PropertyDetailPage() {
 
         {/* Sidebar */}
         <div>
-          <Link
-            href={`/properties/${property.id}/pay`}
-            className="block w-full text-center px-4 py-3 rounded font-semibold mb-3 bg-nzu-terracotta text-white hover:bg-nzu-terracotta-dark"
-          >
-            💸 Pay for this property
-          </Link>
+          {user && !isOwnListing && (
+            property.is_available_for_transaction === false ? (
+              <div className="mb-3 rounded-xl border border-slate-200 bg-slate-100 p-4">
+                <button disabled className="w-full cursor-not-allowed rounded-lg bg-slate-300 px-4 py-3 font-bold text-slate-600">No Longer Available</button>
+                <p className="mt-2 text-center text-xs text-slate-500">This property has already been rented/sold.</p>
+              </div>
+            ) : (
+              <Link href={`/properties/${property.id}/pay`} className="mb-3 block w-full rounded-lg bg-nzu-terracotta px-4 py-3 text-center font-bold text-white shadow-sm hover:bg-nzu-terracotta-dark">
+                {transactionLabel}
+              </Link>
+            )
+          )}
+          {user && isOwnListing && <div className="mb-3 rounded-xl border border-slate-200 bg-slate-100 p-4 text-center text-sm font-semibold text-slate-600">This is your listing</div>}
+          {!user && <Link href="/login" className="mb-3 block w-full rounded-lg bg-nzu-terracotta px-4 py-3 text-center font-bold text-white shadow-sm hover:bg-nzu-terracotta-dark">Log in to {transactionLabel.toLowerCase()}</Link>}
 
           {/* Favorite Button */}
           <button

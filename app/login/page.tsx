@@ -2,7 +2,6 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { login, setToken } from '../../lib/api'
-import { setCurrentUser } from '../../src/lib/auth'
 import useAuth from '../../src/hooks/useAuth'
 
 export default function LoginPage() {
@@ -11,7 +10,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
-  const { refreshUser } = useAuth()
+  const { setAuthenticatedUser } = useAuth()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -24,13 +23,8 @@ export default function LoginPage() {
         // Save token first
         setToken(data.token)
         
-        // Save user data to localStorage immediately
         if (data.user) {
-          try {
-            setCurrentUser(data.user)
-          } catch (err) {
-            // Silently fail - user will be restored from token if needed
-          }
+          setAuthenticatedUser(data.user)
         }
         
         // Navigate to dashboard

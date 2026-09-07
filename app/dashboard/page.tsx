@@ -56,6 +56,8 @@ function BuyerRenterDashboard({ user }: { user: any }) {
   const [favorites, setFavorites] = useState<Favorite[]>([])
   const [inquiries, setInquiries] = useState<Inquiry[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
+  const [leases, setLeases] = useState<Lease[]>([])
+  const [notifications, setNotifications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [downloading, setDownloading] = useState<{ [key: string]: boolean }>({})
@@ -65,14 +67,18 @@ function BuyerRenterDashboard({ user }: { user: any }) {
       setLoading(true)
       setError(null)
       try {
-        const [favs, inqs, pay] = await Promise.all([
+        const [favs, inqs, pay, leaseResult, notificationsResult] = await Promise.all([
           api.favorites.list(),
           api.inquiries.list(),
           api.payments.list(),
+          api.leases.list(),
+          api.notifications.reminders(),
         ])
         setFavorites(favs || [])
         setInquiries(inqs || [])
         setPayments(pay || [])
+        setLeases((leaseResult || []).filter(lease => Number(lease.tenant_id) === Number(user.id)))
+        setNotifications((notificationsResult || []) as any[])
       } catch (err: any) {
         setError(err.message || 'Failed to load data')
       } finally {
@@ -122,6 +128,34 @@ function BuyerRenterDashboard({ user }: { user: any }) {
 
   return (
     <div className="space-y-8">
+      {notifications.length > 0 && (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-amber-900">Alerts & reminders</h2>
+              <p className="text-sm text-amber-800">Stay on top of rent dates and departure warnings.</p>
+            </div>
+            <div className="text-2xl">🔔</div>
+          </div>
+
+          <div className="space-y-3">
+            {notifications.map(item => (
+              <div key={item.id} className="rounded-xl border border-amber-200 bg-white px-4 py-3 text-sm text-slate-700">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="font-semibold text-slate-900">{item.title}</div>
+                    <p className="mt-1">{item.message}</p>
+                  </div>
+                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${item.type === 'rent_overdue' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                    {item.type === 'rent_overdue' ? 'Overdue' : 'Soon'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Page Header */}
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-slate-900">Dashboard</h1>
@@ -258,17 +292,21 @@ function BuyerRenterDashboard({ user }: { user: any }) {
                   </div>
 
                   {payment.status === 'approved' && (
-                    <div className="flex flex-col gap-2 md:items-end">
+                    <div className="w-full rounded-xl border border-green-300 bg-white/80 p-4 md:max-w-sm">
+                      {(payment.purpose === 'rent' || payment.purpose === 'purchase') && <div className="mb-3"><p className="text-sm font-black uppercase tracking-wide text-green-800">🎉 Transaction Complete</p><p className="mt-1 font-semibold text-slate-900">{payment.property?.title || `Property #${payment.property_id}`}</p><p className="text-sm text-slate-600">{payment.purpose === 'rent' ? 'Rented' : 'Purchased'}</p></div>}
+                      <div className="flex flex-wrap gap-2">
                       {payment.receipt_id ? (
-                        <div className="flex gap-2"><button onClick={() => handleDownload(payment, 'receipt')} disabled={Boolean(downloading[`${payment.id}-receipt`])} className="inline-flex items-center rounded-lg border border-nzu-teal bg-nzu-teal/5 px-3 py-2 text-sm font-medium text-nzu-teal transition hover:bg-nzu-teal/10 disabled:opacity-60">📄 {downloading[`${payment.id}-receipt`] ? 'Preparing...' : 'Download'}</button><button onClick={() => handleOpen(payment, 'receipt')} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">Open</button></div>
+                        <><button onClick={() => handleDownload(payment, 'receipt')} disabled={Boolean(downloading[`${payment.id}-receipt`])} className="inline-flex items-center rounded-lg border border-nzu-teal bg-nzu-teal/5 px-3 py-2 text-sm font-medium text-nzu-teal transition hover:bg-nzu-teal/10 disabled:opacity-60">📄 {downloading[`${payment.id}-receipt`] ? 'Preparing...' : 'Download Receipt'}</button><button onClick={() => handleOpen(payment, 'receipt')} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">Open</button></>
                       ) : (
                         <span className="text-xs text-slate-500">Receipt pending</span>
                       )}
                       {payment.contract_id ? (
-                        <div className="flex gap-2"><button onClick={() => handleDownload(payment, 'contract')} disabled={Boolean(downloading[`${payment.id}-contract`])} className="inline-flex items-center rounded-lg border border-slate-400 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-60">📋 {downloading[`${payment.id}-contract`] ? 'Preparing...' : 'Download'}</button><button onClick={() => handleOpen(payment, 'contract')} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">Open</button></div>
+                        <><button onClick={() => handleDownload(payment, 'contract')} disabled={Boolean(downloading[`${payment.id}-contract`])} className="inline-flex items-center rounded-lg border border-slate-400 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-60">📋 {downloading[`${payment.id}-contract`] ? 'Preparing...' : 'Download Contract'}</button><button onClick={() => handleOpen(payment, 'contract')} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">Open</button></>
                       ) : (
                         <span className="text-xs text-slate-500">Contract pending</span>
                       )}
+                      </div>
+                      {payment.purpose === 'rent' && payment.lease_id && <a href="#my-leases" className="mt-3 inline-block text-sm font-semibold text-nzu-teal hover:underline">View lease details →</a>}
                     </div>
                   )}
                 </div>
@@ -277,6 +315,8 @@ function BuyerRenterDashboard({ user }: { user: any }) {
           </div>
         )}
       </section>
+
+      {leases.length > 0 && <section id="my-leases" className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div className="mb-5 flex items-center justify-between"><div><h2 className="text-2xl font-bold text-slate-900">My Leases</h2><p className="mt-1 text-sm text-slate-600">Auto-created agreements from approved rental payments</p></div><div className="text-3xl">🏠</div></div><div className="space-y-3">{leases.map(lease => <div key={lease.id} className="rounded-xl border border-nzu-teal/20 bg-nzu-teal/5 p-4"><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><h3 className="font-bold text-slate-900">{lease.property?.title || `Property #${lease.property_id}`}</h3><p className="mt-1 text-sm text-slate-600">Started {lease.start_date} · {lease.currency} {lease.rent_amount.toLocaleString()} per month</p></div><span className="rounded-full bg-green-100 px-3 py-1 text-xs font-bold uppercase text-green-800">{lease.status}</span></div></div>)}</div></section>}
     </div>
   )
 }
@@ -299,13 +339,17 @@ function OwnerAgentDashboard({ user }: { user: any }) {
   const [featureScreenshot, setFeatureScreenshot] = useState<File | null>(null)
   const [featureSettings, setFeatureSettings] = useState<{ enabled?: boolean; price?: string | number; currency?: string; duration?: string | number }>({})
 
-  function getStatusBadgeClass(status?: string) {
+  function getStatusBadgeClass(status?: string, property?: Property) {
+    if (property?.is_sold) return 'bg-slate-800 text-white border border-slate-900'
+    if (property?.listing_type === 'rent' && leases.some(lease => lease.property_id === property.id && lease.status === 'active')) return 'bg-blue-100 text-blue-800 border border-blue-200'
     if (status === 'verified') return 'bg-green-100 text-green-800 border border-green-200'
     if (status === 'rejected') return 'bg-red-100 text-red-800 border border-red-200'
     return 'bg-amber-100 text-amber-800 border border-amber-200'
   }
 
-  function getStatusLabel(status?: string) {
+  function getStatusLabel(status?: string, property?: Property) {
+    if (property?.is_sold) return 'Sold'
+    if (property?.listing_type === 'rent' && leases.some(lease => lease.property_id === property.id && lease.status === 'active')) return 'Rented'
     if (status === 'verified') return 'Live'
     if (status === 'rejected') return 'Rejected'
     return 'Pending Review'
@@ -316,7 +360,7 @@ function OwnerAgentDashboard({ user }: { user: any }) {
     setError(null)
     try {
       const [props, leasesResult, publicSettings] = await Promise.all([
-        api.properties.list({ per_page: '50' }),
+        api.properties.mine({ per_page: '50' }),
         api.leases.list(),
         api.settings.public(),
       ])
@@ -514,14 +558,8 @@ function OwnerAgentDashboard({ user }: { user: any }) {
                     <div className="flex-1 min-w-0">
                       <div className="mb-2 flex items-center gap-2 flex-wrap">
                         <h4 className="font-semibold text-slate-900 truncate">{prop.title}</h4>
-                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          prop.status === 'verified'
-                            ? 'bg-green-100 text-green-800'
-                            : prop.status === 'pending'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-red-100 text-red-800'
-                        }`}>
-                          {prop.status === 'verified' ? '✓ Live' : prop.status === 'pending' ? '⏱ Pending' : '✗ Rejected'}
+                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${getStatusBadgeClass(prop.status, prop)}`}>
+                          {getStatusLabel(prop.status, prop)}
                         </span>
                       </div>
                       <p className="text-sm text-slate-600">{prop.district}, {prop.province}</p>

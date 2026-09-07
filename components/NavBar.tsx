@@ -3,7 +3,6 @@ import Link from 'next/link'
 import Image from 'next/image'
 import React, { useEffect, useState } from 'react'
 import useAuth from '../src/hooks/useAuth'
-import api from '../src/lib/api'
 
 export default function NavBar() {
   const { user, loading, logout } = useAuth()
@@ -12,15 +11,16 @@ export default function NavBar() {
 
   useEffect(() => {
     async function loadPendingCount() {
-      if (user?.role !== 'admin') {
+      if (!['admin', 'superadmin'].includes(user?.role || '')) {
         setPendingCount(0)
         return
       }
 
       try {
+        const token = localStorage.getItem('auth_token')
         const response = await fetch('http://localhost:8000/api/admin/reviews/pending-count', {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
         })
         if (!response.ok) throw new Error()
@@ -66,6 +66,7 @@ export default function NavBar() {
         { label: 'Super Admin', href: '/superadmin' },
         { label: 'Site Settings', href: '/superadmin/settings' },
         { label: 'User Management', href: '/superadmin/users' },
+        { label: 'Reviews', href: '/dashboard/reviews', badge: pendingCount },
       ]
     }
 
@@ -143,7 +144,13 @@ export default function NavBar() {
   return (
     <nav className="flex flex-col gap-3 py-3 md:flex-row md:items-center md:justify-between">
       <Link href="/" className="flex items-center gap-3 text-lg font-bold text-white hover:text-nzu-cream">
-        <Image src="/nzulogo.jpg" alt="Nzu logo" width={36} height={36} className="h-9 w-auto rounded-md object-cover" />
+        <Image
+          src="/nzulogo.jpg"
+          alt="Nzu logo"
+          width={1380}
+          height={752}
+          className="h-9 w-auto rounded-md object-cover"
+        />
         <span>Nzu</span>
       </Link>
 

@@ -24,6 +24,16 @@ function publicAssetUrl(path: unknown): string | null {
   return `${API_BASE}/storage/${path.replace(/^\//, '')}`;
 }
 
+function normalizePayment(payment: any): Payment {
+  return {
+    ...payment,
+    property_id: payment.property_id ?? payment.property?.id ?? null,
+    lease_id: payment.lease_id ?? payment.lease?.id ?? null,
+    receipt_id: payment.receipt_id ?? payment.receipt?.id ?? null,
+    contract_id: payment.contract_id ?? payment.contract?.id ?? null,
+  };
+}
+
 let csrfPromise: Promise<void> | null = null
 function ensureCsrf(): Promise<void> {
   if (!USE_COOKIE_AUTH) return Promise.resolve()
@@ -187,6 +197,20 @@ export const api = {
         },
       };
     },
+    async mine(filters: Record<string, any> = {}): Promise<Paginated<Property>> {
+      const qs = new URLSearchParams(filters as Record<string, string>).toString();
+      const payload = await request<any>(`/properties/mine${qs ? `?${qs}` : ''}`);
+      const data = normalizeListResponse<Property>(payload);
+      return {
+        data,
+        meta: {
+          current_page: 1,
+          last_page: 1,
+          per_page: data.length,
+          total: data.length,
+        },
+      };
+    },
     async get(id: number): Promise<Property> {
       return request(`/properties/${id}`);
     },
@@ -221,6 +245,9 @@ export const api = {
     },
     async feature(id: number, form: FormData): Promise<Payment> {
       return request(`/properties/${id}/feature`, { method: 'POST', body: form });
+    },
+    async initiateTransaction(id: number, form: FormData): Promise<Payment> {
+      return normalizePayment(await request(`/properties/${id}/initiate-transaction`, { method: 'POST', body: form }));
     },
   },
 
@@ -268,19 +295,27 @@ export const api = {
 
   payments: {
     async submit(form: FormData): Promise<Payment> {
-      return request('/payments', { method: 'POST', body: form });
+      return normalizePayment(await request('/payments', { method: 'POST', body: form }));
     },
     async list(): Promise<Payment[]> {
-      return normalizeListResponse<Payment>(await request<any>('/payments'));
+      return normalizeListResponse<any>(await request<any>('/payments')).map(normalizePayment);
     },
     async adminList(): Promise<any[]> {
       return normalizeListResponse<any>(await request<any>('/admin/payments'));
     },
     async approve(id: number): Promise<any> {
-      return request(`/admin/payments/${id}/approve`, { method: 'PATCH' });
+      const response = await request<any>(`/admin/payments/${id}/approve`, { method: 'PATCH' });
+      return response.payment ? { ...response, payment: normalizePayment(response.payment) } : response;
     },
     async reject(id: number, reason?: string): Promise<any> {
       return request(`/admin/payments/${id}/reject`, { method: 'PATCH', body: { reason } });
+    },
+  },
+
+  notifications: {
+    async reminders(): Promise<any[]> {
+      const payload = await request<any>('/notifications/reminders');
+      return Array.isArray(payload?.data) ? payload.data : [];
     },
   },
 
@@ -370,6 +405,9 @@ export const api = {
     },
     async deactivateUser(id: number): Promise<ManagedUser> {
       return request(`/superadmin/users/${id}/deactivate`, { method: 'PATCH' });
+    },
+    async activateUser(id: number): Promise<ManagedUser> {
+      return request(`/superadmin/users/${id}/activate`, { method: 'PATCH' });
     },
     async paymentMethods(): Promise<PaymentMethod[]> {
       return request('/superadmin/payment-methods');

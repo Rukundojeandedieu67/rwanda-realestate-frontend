@@ -22,6 +22,7 @@ export type PropertyFormValues = {
   bedrooms: string
   bathrooms: string
   size_sqm: string
+  owner_id?: string
 }
 
 const defaultValues: PropertyFormValues = {
@@ -49,6 +50,7 @@ export default function PropertyForm({
   submitLabel = 'Save Property',
   loading = false,
   resubmitNotice,
+  showOwnerSelector = false,
 }: {
   initialValues?: Partial<PropertyFormValues>
   initialImages?: PropertyImage[]
@@ -57,17 +59,23 @@ export default function PropertyForm({
   submitLabel?: string
   loading?: boolean
   resubmitNotice?: string
+  showOwnerSelector?: boolean
 }) {
   const [form, setForm] = useState<PropertyFormValues>({
     ...defaultValues,
-    ...initialValues,
+    ...(initialValues ?? {}),
+    owner_id: initialValues?.owner_id ? String(initialValues.owner_id) : '',
   })
   const [images, setImages] = useState<File[]>([])
   const [existingImages, setExistingImages] = useState<PropertyImage[]>(initialImages || [])
   const [imageBusy, setImageBusy] = useState(false)
 
   useEffect(() => {
-    setForm({ ...defaultValues, ...initialValues })
+    setForm({
+      ...defaultValues,
+      ...(initialValues ?? {}),
+      owner_id: initialValues?.owner_id ? String(initialValues.owner_id) : '',
+    })
     setExistingImages(initialImages || [])
   }, [initialValues])
 
@@ -172,6 +180,20 @@ export default function PropertyForm({
             placeholder="1500000"
           />
         </label>
+
+        {showOwnerSelector && (
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-slate-700">Owner user ID (agent only)</span>
+            <input
+              type="number"
+              min="1"
+              value={form.owner_id ?? ''}
+              onChange={e => updateField('owner_id', e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              placeholder="Enter owner account ID"
+            />
+          </label>
+        )}
 
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-slate-700">Currency</span>

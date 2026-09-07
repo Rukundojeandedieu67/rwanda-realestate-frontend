@@ -8,6 +8,7 @@ interface AuthContextValue {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
+  setAuthenticatedUser: (user: User) => void;
   refreshUser: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -29,6 +30,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       try { clearToken() } catch {}
       throw err
     }
+  }
+
+  function setAuthenticatedUser(authenticatedUser: User): void {
+    setUser(authenticatedUser)
+    try { setCurrentUser(authenticatedUser) } catch {}
   }
 
   useEffect(() => {
@@ -83,7 +89,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, isAuthenticated: !!user, refreshUser, logout }}>
+    <AuthContext.Provider value={{ user, loading, isAuthenticated: !!user, setAuthenticatedUser, refreshUser, logout }}>
       {children}
     </AuthContext.Provider>
   )

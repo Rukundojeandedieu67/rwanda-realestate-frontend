@@ -89,6 +89,8 @@ export interface Property {
   duplicate_of_property_id?: number | null;
   featured_until?: string | null;
   is_currently_featured?: boolean;
+  is_sold?: boolean;
+  is_available_for_transaction?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -141,7 +143,10 @@ export interface Payment {
   user_id: number;
   amount: number;
   currency: string;
-  purpose: 'deposit' | 'rent' | 'purchase' | 'featured_listing' | string;
+  purpose: 'deposit' | 'rent' | 'purchase' | 'short_stay' | 'featured_listing' | string;
+  duration_unit?: 'days' | 'hours' | null;
+  duration_quantity?: number | null;
+  stay_start_at?: string | null;
   payer_name: string;
   reference_number: string;
   screenshot_url?: string | null;
@@ -154,18 +159,28 @@ export interface Payment {
   updated_at?: string;
   payment_method_id?: number | null;
   payment_method?: PaymentMethod | null;
+  lease_id?: number | null;
+  lease?: Lease | null;
+  property?: Property | null;
+  receipt?: Receipt | null;
+  contract?: Contract | null;
 }
 
 export interface Receipt {
   id: number;
   payment_id: number;
-  url: string;
+  pdf_path?: string | null;
+  url?: string;
 }
 
 export interface Contract {
   id: number;
-  lease_id: number;
-  url: string;
+  property_id?: number;
+  payment_id?: number;
+  type?: string;
+  terms?: string;
+  pdf_path?: string | null;
+  url?: string;
 }
 
 export interface Review {
