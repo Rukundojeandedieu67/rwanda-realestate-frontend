@@ -265,6 +265,9 @@ export const api = {
     async respond(id: number, response: string): Promise<Inquiry> {
       return request(`/inquiries/${id}/respond`, { method: 'PATCH', body: { response } });
     },
+    async message(id: number, message: string): Promise<Inquiry> {
+      return request(`/inquiries/${id}/messages`, { method: 'POST', body: { message } });
+    },
   },
 
   favorites: {

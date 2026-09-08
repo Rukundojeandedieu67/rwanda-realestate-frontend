@@ -99,14 +99,24 @@ export interface Property {
 export interface Inquiry {
   id: number;
   property_id: number;
-  sender_id: number;
-  receiver_id?: number | null;
+  user_id: number;
   message: string;
   property?: Property;
+  user?: User;
   response?: string | null;
+  messages?: InquiryMessage[];
   status?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface InquiryMessage {
+  id: number;
+  inquiry_id: number;
+  user_id: number;
+  message: string;
+  user?: User;
+  created_at?: string;
 }
 
 export interface Favorite {

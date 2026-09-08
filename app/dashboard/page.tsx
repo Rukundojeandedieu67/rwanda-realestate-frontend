@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import useAuth from '../../src/hooks/useAuth'
-import type { Favorite, Inquiry, Property, Payment, Lease } from '../../src/types/index'
+import type { Favorite, Inquiry, InquiryMessage, Property, Payment, Lease } from '../../src/types/index'
 import api from '../../src/lib/api'
 import { PageLoader, ErrorAlert, EmptyState } from '../../components/StatusStates'
 import PaymentMethodCards from '../../components/PaymentMethodCards'
@@ -23,6 +23,31 @@ function getPermissionMessage(err?: any, fallback = 'Failed to perform this acti
   }
 
   return err?.message || fallback
+}
+
+function getInquiryMessages(inquiry: Inquiry): InquiryMessage[] {
+  if (inquiry.messages?.length) return inquiry.messages
+
+  const messages: InquiryMessage[] = [{
+    id: inquiry.id * -1,
+    inquiry_id: inquiry.id,
+    user_id: inquiry.user_id,
+    message: inquiry.message,
+    user: inquiry.user,
+    created_at: inquiry.created_at,
+  }]
+
+  if (inquiry.response) {
+    messages.push({
+      id: inquiry.id * -1 - 1,
+      inquiry_id: inquiry.id,
+      user_id: 0,
+      message: inquiry.response,
+      created_at: inquiry.updated_at,
+    })
+  }
+
+  return messages
 }
 
 export default function DashboardPage() {
@@ -55,6 +80,8 @@ export default function DashboardPage() {
 function BuyerRenterDashboard({ user }: { user: any }) {
   const [favorites, setFavorites] = useState<Favorite[]>([])
   const [inquiries, setInquiries] = useState<Inquiry[]>([])
+  const [inquiryMessages, setInquiryMessages] = useState<Record<number, string>>({})
+  const [sendingInquiryMessage, setSendingInquiryMessage] = useState<number | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
   const [leases, setLeases] = useState<Lease[]>([])
   const [notifications, setNotifications] = useState<any[]>([])
@@ -109,6 +136,22 @@ function BuyerRenterDashboard({ user }: { user: any }) {
       alert(err.message || `Failed to download ${type}`)
     } finally {
       setDownloading(prev => ({ ...prev, [idKey]: false }))
+    }
+  }
+
+  async function handleInquiryMessage(inquiry: Inquiry) {
+    const message = inquiryMessages[inquiry.id]?.trim()
+    if (!message) return
+
+    try {
+      setSendingInquiryMessage(inquiry.id)
+      const updated = await api.inquiries.message(inquiry.id, message)
+      setInquiries(prev => prev.map(item => item.id === inquiry.id ? updated : item))
+      setInquiryMessages(prev => ({ ...prev, [inquiry.id]: '' }))
+    } catch (err: any) {
+      setError(err.message || 'Failed to send message')
+    } finally {
+      setSendingInquiryMessage(null)
     }
   }
 
@@ -222,21 +265,43 @@ function BuyerRenterDashboard({ user }: { user: any }) {
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div className="flex-1">
                     <h4 className="font-semibold text-slate-900">{inq.property?.title || `Property #${inq.property_id}`}</h4>
-                    <p className="mt-1 text-sm text-slate-600 line-clamp-2">{inq.message}</p>
+                    <p className="mt-1 text-sm text-slate-600">{inq.message}</p>
                   </div>
                   <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap ${
-                    inq.status === 'answered' 
+                    inq.status === 'responded' 
                       ? 'bg-green-100 text-green-800' 
                       : 'bg-amber-100 text-amber-800'
                   }`}>
-                    {inq.status === 'answered' ? '✓ Answered' : '⏱ Pending'}
+                    {inq.status === 'responded' ? '✓ Answered' : '⏱ Pending'}
                   </span>
                 </div>
 
-                {inq.response && (
-                  <div className="rounded-lg border-l-2 border-nzu-teal bg-nzu-teal/5 p-3 text-sm">
-                    <p className="font-medium text-nzu-teal">Response</p>
-                    <p className="mt-1 text-slate-700">{inq.response}</p>
+                <div className="space-y-2">
+                  {getInquiryMessages(inq).map(message => (
+                    <div key={message.id} className={`rounded-lg p-3 text-sm ${message.user_id === user.id ? 'ml-6 bg-slate-100' : 'mr-6 bg-nzu-teal/5'}`}>
+                      <p className="font-medium text-slate-700">{message.user_id === user.id ? 'You' : message.user?.name || 'Property contact'}</p>
+                      <p className="mt-1 text-slate-700">{message.message}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {inq.status === 'responded' && (
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                    <textarea
+                      value={inquiryMessages[inq.id] || ''}
+                      onChange={event => setInquiryMessages(prev => ({ ...prev, [inq.id]: event.target.value }))}
+                      placeholder="Continue the conversation..."
+                      rows={2}
+                      className="min-h-16 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-nzu-teal focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void handleInquiryMessage(inq)}
+                      disabled={sendingInquiryMessage === inq.id || !inquiryMessages[inq.id]?.trim()}
+                      className="rounded-lg bg-nzu-teal px-4 py-2 text-sm font-semibold text-white transition hover:bg-nzu-teal/90 disabled:cursor-not-allowed disabled:opacity-50 sm:self-end"
+                    >
+                      {sendingInquiryMessage === inq.id ? 'Sending...' : 'Reply'}
+                    </button>
                   </div>
                 )}
               </div>
@@ -323,6 +388,9 @@ function BuyerRenterDashboard({ user }: { user: any }) {
 
 function OwnerAgentDashboard({ user }: { user: any }) {
   const [properties, setProperties] = useState<Property[]>([])
+  const [inquiries, setInquiries] = useState<Inquiry[]>([])
+  const [inquiryResponses, setInquiryResponses] = useState<Record<number, string>>({})
+  const [respondingInquiry, setRespondingInquiry] = useState<number | null>(null)
   const [leases, setLeases] = useState<Lease[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
   const [leaseForm, setLeaseForm] = useState({ property_id: '', start_date: '', rent_amount: '', currency: 'RWF' })
@@ -366,6 +434,8 @@ function OwnerAgentDashboard({ user }: { user: any }) {
         api.payments.managed(),
         api.settings.public(),
       ])
+      const inquiryResult = await api.inquiries.list()
+      setInquiries(inquiryResult || [])
       setFeatureSettings({ enabled: publicSettings.featured_listing_enabled, price: publicSettings.featured_listing_price, currency: publicSettings.featured_listing_currency, duration: publicSettings.featured_listing_duration_days })
 
       const allProps = props.data || []
@@ -409,6 +479,26 @@ function OwnerAgentDashboard({ user }: { user: any }) {
       setLeases(leases.filter(lease => lease.property_id !== id))
     } catch (err: any) {
       setActionError(getPermissionMessage(err, 'Failed to delete property'))
+    }
+  }
+
+  async function handleInquiryResponse(inquiry: Inquiry) {
+    const response = inquiryResponses[inquiry.id]?.trim()
+    if (!response) return
+
+    try {
+      setRespondingInquiry(inquiry.id)
+      setActionError(null)
+      const updated = inquiry.status === 'responded'
+        ? await api.inquiries.message(inquiry.id, response)
+        : await api.inquiries.respond(inquiry.id, response)
+      setInquiries(prev => prev.map(item => item.id === inquiry.id ? { ...item, ...updated } : item))
+      setInquiryResponses(prev => ({ ...prev, [inquiry.id]: '' }))
+      setFlashMessage(inquiry.status === 'responded' ? 'Message sent.' : 'Inquiry response sent.')
+    } catch (err: any) {
+      setActionError(err.message || 'Failed to send inquiry response')
+    } finally {
+      setRespondingInquiry(null)
     }
   }
 
@@ -651,6 +741,64 @@ function OwnerAgentDashboard({ user }: { user: any }) {
             ))}
           </div>
         )}
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900">Property inquiries</h2>
+                <p className="mt-1 text-sm text-slate-600">Questions from people interested in your listings.</p>
+              </div>
+              <div className="text-3xl">💬</div>
+            </div>
+
+            {inquiries.length === 0 ? (
+              <EmptyState title="No inquiries yet" description="New questions about your properties will appear here." />
+            ) : (
+              <div className="space-y-4">
+                {inquiries.map(inquiry => (
+                  <div key={inquiry.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h3 className="font-semibold text-slate-900">{inquiry.property?.title || `Property #${inquiry.property_id}`}</h3>
+                        <p className="mt-1 text-sm text-slate-600">From {inquiry.user?.name || `User #${inquiry.user_id}`}</p>
+                        <p className="mt-3 text-slate-700">{inquiry.message}</p>
+                      </div>
+                      <span className={`w-fit rounded-full px-2.5 py-1 text-xs font-semibold ${inquiry.status === 'responded' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
+                        {inquiry.status === 'responded' ? 'Responded' : 'Open'}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 space-y-2">
+                      {getInquiryMessages(inquiry).map(message => (
+                        <div key={message.id} className={`rounded-lg p-3 text-sm ${message.user_id === user.id ? 'ml-6 bg-nzu-teal/10' : 'mr-6 bg-white'}`}>
+                          <p className="font-semibold text-slate-700">{message.user_id === user.id ? 'You' : message.user?.name || 'Inquiry sender'}</p>
+                          <p className="mt-1 text-slate-700">{message.message}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                        <textarea
+                          value={inquiryResponses[inquiry.id] || ''}
+                          onChange={event => setInquiryResponses(prev => ({ ...prev, [inquiry.id]: event.target.value }))}
+                          placeholder={inquiry.status === 'responded' ? 'Continue the conversation...' : 'Write a response...'}
+                          rows={2}
+                          className="min-h-20 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-nzu-teal focus:outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void handleInquiryResponse(inquiry)}
+                          disabled={respondingInquiry === inquiry.id || !inquiryResponses[inquiry.id]?.trim()}
+                          className="rounded-lg bg-nzu-teal px-4 py-2 text-sm font-semibold text-white transition hover:bg-nzu-teal/90 disabled:cursor-not-allowed disabled:opacity-50 sm:self-end"
+                        >
+                          {respondingInquiry === inquiry.id ? 'Sending...' : inquiry.status === 'responded' ? 'Send message' : 'Send response'}
+                        </button>
+                      </div>
+                  </div>
+                ))}
+              </div>
+            )}
       </section>
 
       {featureProperty && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4"><form onSubmit={submitFeature} className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"><div className="flex items-start justify-between gap-4"><div><h2 className="text-2xl font-bold text-slate-900">Feature {featureProperty.title}</h2><p className="mt-1 text-sm text-slate-600">{featureSettings.currency} {Number(featureSettings.price || 0).toLocaleString()} for {featureSettings.duration || 7} days</p></div><button type="button" onClick={() => setFeatureProperty(null)} className="text-2xl text-slate-500">×</button></div><div className="mt-5"><h3 className="mb-3 font-semibold text-slate-900">Choose where you paid</h3><PaymentMethodCards value={featureMethodId} onChange={setFeatureMethodId} /></div><div className="mt-5 grid gap-4 sm:grid-cols-2"><label className="text-sm font-semibold text-slate-700">Payer name<input required value={featurePayer} onChange={e => setFeaturePayer(e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2" /></label><label className="text-sm font-semibold text-slate-700">Reference number<input required value={featureReference} onChange={e => setFeatureReference(e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2" /></label><label className="text-sm font-semibold text-slate-700 sm:col-span-2">Screenshot<input type="file" accept="image/*" onChange={e => setFeatureScreenshot(e.target.files?.[0] || null)} className="mt-1 block w-full text-sm" /></label></div><div className="mt-6 flex justify-end gap-3"><button type="button" onClick={() => setFeatureProperty(null)} className="rounded-lg border px-4 py-2">Cancel</button><button type="submit" className="rounded-lg bg-nzu-terracotta px-4 py-2 font-semibold text-white">Submit payment</button></div></form></div>}
