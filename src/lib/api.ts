@@ -396,7 +396,9 @@ export const api = {
           settings[`${key}_configured` as keyof SiteSettings] = setting.is_set as never;
         }
 
-        (settings as Record<string, unknown>)[key] = setting.value;
+        (settings as Record<string, unknown>)[key] = key === 'smtp_encryption'
+          ? setting.value === 'tls' ? 'smtp' : setting.value === 'ssl' ? 'smtps' : setting.value
+          : setting.value;
       });
 
       settings.hero_background_image_url = publicAssetUrl(settings.hero_background_image_path);
