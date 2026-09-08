@@ -57,6 +57,7 @@ function BuyerRenterDashboard({ user }: { user: any }) {
   const [inquiries, setInquiries] = useState<Inquiry[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
   const [leases, setLeases] = useState<Lease[]>([])
+  const [payments, setPayments] = useState<Payment[]>([])
   const [notifications, setNotifications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -359,9 +360,10 @@ function OwnerAgentDashboard({ user }: { user: any }) {
     setLoading(true)
     setError(null)
     try {
-      const [props, leasesResult, publicSettings] = await Promise.all([
+      const [props, leasesResult, managedPayments, publicSettings] = await Promise.all([
         api.properties.mine({ per_page: '50' }),
         api.leases.list(),
+        api.payments.managed(),
         api.settings.public(),
       ])
       setFeatureSettings({ enabled: publicSettings.featured_listing_enabled, price: publicSettings.featured_listing_price, currency: publicSettings.featured_listing_currency, duration: publicSettings.featured_listing_duration_days })
@@ -373,6 +375,7 @@ function OwnerAgentDashboard({ user }: { user: any }) {
       const userPropertyIds = ownedProps.map(prop => prop.id)
 
       setLeases((leasesResult || []).filter(lease => userPropertyIds.includes(lease.property_id)))
+      setPayments((managedPayments || []).filter(payment => userPropertyIds.includes(Number(payment.property_id))))
     } catch (err: any) {
       setError(err.message || 'Failed to load properties')
     } finally {
@@ -517,6 +520,39 @@ function OwnerAgentDashboard({ user }: { user: any }) {
           </div>
         </div>
       </div>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">Payment outcomes</h2>
+            <p className="mt-1 text-sm text-slate-600">Completed payments automatically update your listing and lease records.</p>
+          </div>
+          <div className="text-3xl">✓</div>
+        </div>
+        {payments.length === 0 ? (
+          <p className="text-sm text-slate-500">No payment submissions for your properties yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {payments.slice(0, 8).map(payment => {
+              const outcome = payment.status === 'approved'
+                ? payment.purpose === 'purchase' ? 'Purchase completed' : payment.purpose === 'rent' ? 'Rent approved' : payment.purpose === 'short_stay' ? 'Short stay booked' : 'Payment approved'
+                : payment.status === 'refund_pending' ? 'Refund pending' : payment.status || 'Pending review'
+              const propertyStatus = payment.property?.availability_status || 'available'
+              return (
+                <div key={payment.id} className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="font-semibold text-slate-900">{payment.property?.title || `Property #${payment.property_id}`}</p>
+                    <p className="mt-1 text-sm text-slate-600">{outcome} · {payment.payer_name}</p>
+                  </div>
+                  <span className={`w-fit rounded-full px-3 py-1 text-xs font-bold ${payment.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
+                    {payment.status === 'approved' && propertyStatus !== 'available' ? propertyStatus : outcome}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </section>
 
       {/* My Properties Section */}
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

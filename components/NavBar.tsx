@@ -37,45 +37,43 @@ export default function NavBar() {
   }, [loading, user?.role])
 
   const navItems = (() => {
+    let roleItems: { label: string; href: string; badge?: number }[]
+
     if (!user) {
-      return [
+      roleItems = [
         { label: 'Browse Properties', href: '/properties' },
         { label: 'Login', href: '/login' },
         { label: 'Register', href: '/register' },
       ]
-    }
-
-    if (user.role === 'buyer_renter') {
-      return [
+    } else if (user.role === 'buyer_renter') {
+      roleItems = [
         { label: 'Browse Properties', href: '/properties' },
         { label: 'My Favorites', href: '/dashboard' },
         { label: 'Dashboard', href: '/dashboard' },
       ]
-    }
-
-    if (user.role === 'owner' || user.role === 'agent') {
-      return [
+    } else if (user.role === 'owner' || user.role === 'agent') {
+      roleItems = [
         { label: 'My Properties', href: '/dashboard' },
         { label: 'Add Property', href: '/dashboard/properties/new' },
         { label: 'Dashboard', href: '/dashboard' },
       ]
-    }
-
-    if (user.role === 'superadmin') {
-      return [
+    } else if (user.role === 'superadmin') {
+      roleItems = [
         { label: 'Super Admin', href: '/superadmin' },
         { label: 'Site Settings', href: '/superadmin/settings' },
         { label: 'User Management', href: '/superadmin/users' },
         { label: 'Reviews', href: '/dashboard/reviews', badge: pendingCount },
       ]
+    } else if (user.role === 'admin') {
+      roleItems = [
+        { label: 'Pending Reviews', href: '/dashboard/reviews', badge: pendingCount },
+        { label: 'Dashboard', href: '/dashboard' },
+      ]
+    } else {
+      roleItems = []
     }
 
-    if (user.role === 'admin') return [
-      { label: 'Pending Reviews', href: '/dashboard/reviews', badge: pendingCount },
-      { label: 'Dashboard', href: '/dashboard' },
-    ]
-
-    return []
+    return [{ label: 'Guides', href: '/guides' }, ...roleItems]
   })()
 
   function renderLink(item: { label: string; href: string; badge?: number }, index: number) {

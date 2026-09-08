@@ -91,6 +91,7 @@ export interface Property {
   is_currently_featured?: boolean;
   is_sold?: boolean;
   is_available_for_transaction?: boolean;
+  availability_status?: 'available' | 'rented' | 'sold' | 'booked' | string;
   created_at?: string;
   updated_at?: string;
 }

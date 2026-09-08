@@ -243,6 +243,9 @@ export const api = {
     async setPrimaryImage(id: number, imageId: number): Promise<Property> {
       return request(`/properties/${id}/images/${imageId}/primary`, { method: 'PATCH' });
     },
+    async reorderImages(id: number, imageIds: number[]): Promise<{ images: PropertyImage[] }> {
+      return request(`/properties/${id}/images/order`, { method: 'PATCH', body: { image_ids: imageIds } });
+    },
     async feature(id: number, form: FormData): Promise<Payment> {
       return request(`/properties/${id}/feature`, { method: 'POST', body: form });
     },
@@ -299,6 +302,9 @@ export const api = {
     },
     async list(): Promise<Payment[]> {
       return normalizeListResponse<any>(await request<any>('/payments')).map(normalizePayment);
+    },
+    async managed(): Promise<Payment[]> {
+      return normalizeListResponse<any>(await request<any>('/managed-payments')).map(normalizePayment);
     },
     async adminList(): Promise<any[]> {
       return normalizeListResponse<any>(await request<any>('/admin/payments'));

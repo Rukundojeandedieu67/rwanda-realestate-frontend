@@ -6,6 +6,7 @@ import api from '../src/lib/api'
 
 export type PropertyCategory = 'residential' | 'commercial' | 'land' | 'short_stay'
 export type PropertyListingType = 'sale' | 'rent' | 'short_stay'
+const MAX_PROPERTY_IMAGES = 3
 
 export type PropertyFormValues = {
   title: string
@@ -69,6 +70,7 @@ export default function PropertyForm({
   const [images, setImages] = useState<File[]>([])
   const [existingImages, setExistingImages] = useState<PropertyImage[]>(initialImages || [])
   const [imageBusy, setImageBusy] = useState(false)
+  const [imageNotice, setImageNotice] = useState<string | null>(null)
 
   useEffect(() => {
     setForm({
@@ -94,6 +96,7 @@ export default function PropertyForm({
     try {
       await api.properties.deleteImage(propertyId, imageId)
       setExistingImages(current => current.filter(image => image.id !== imageId))
+      setImageNotice(null)
     } finally {
       setImageBusy(false)
     }
@@ -105,6 +108,21 @@ export default function PropertyForm({
     try {
       await api.properties.setPrimaryImage(propertyId, imageId)
       setExistingImages(current => current.map(image => ({ ...image, is_primary: image.id === imageId })))
+    } finally {
+      setImageBusy(false)
+    }
+  }
+
+  async function moveImage(index: number, direction: -1 | 1) {
+    if (!propertyId) return
+    const targetIndex = index + direction
+    if (targetIndex < 0 || targetIndex >= existingImages.length) return
+    const reordered = [...existingImages]
+    ;[reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]]
+    setImageBusy(true)
+    try {
+      const result = await api.properties.reorderImages(propertyId, reordered.map(image => image.id))
+      setExistingImages(result.images)
     } finally {
       setImageBusy(false)
     }
@@ -300,12 +318,27 @@ export default function PropertyForm({
 
       <div className="border-t border-slate-200 pt-5">
         <div className="mb-3 flex items-center justify-between">
-          <div><h2 className="font-semibold text-slate-900">Property images</h2><p className="text-sm text-slate-500">The first image is used until you choose a primary image.</p></div>
+          <div><h2 className="font-semibold text-slate-900">Property images</h2><p className="text-sm text-slate-500">Add up to 3 images. You can add them now or later.</p></div>
+          <span className="text-sm font-medium text-slate-500">{existingImages.length + images.length} / {MAX_PROPERTY_IMAGES}</span>
           {imageBusy && <span className="text-sm text-slate-500">Updating image...</span>}
         </div>
-        {existingImages.length > 0 && <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">{existingImages.map(image => <div key={image.id} className="relative overflow-hidden rounded-lg border border-slate-200"><img src={image.url} alt="Property" className="h-28 w-full object-cover" /><div className="flex gap-1 p-2 text-xs"><button type="button" onClick={() => void setPrimary(image.id)} disabled={imageBusy || image.is_primary} className="flex-1 rounded border px-1 py-1 disabled:opacity-50">{image.is_primary ? 'Primary' : 'Set primary'}</button><button type="button" onClick={() => void deleteImage(image.id)} disabled={imageBusy} className="rounded border border-red-200 px-2 py-1 text-red-700">Delete</button></div></div>)}</div>}
-        <input type="file" accept="image/*" multiple onChange={event => setImages(Array.from(event.target.files || []))} className="block w-full text-sm text-slate-600" />
-        {images.length > 0 && <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">{images.map(file => <img key={`${file.name}-${file.lastModified}`} src={URL.createObjectURL(file)} alt={file.name} className="h-20 w-full rounded object-cover" />)}</div>}
+        {existingImages.length > 0 && <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">{existingImages.map((image, index) => <div key={image.id} className="relative overflow-hidden rounded-lg border border-slate-200"><img src={image.url} alt="Property" className="h-28 w-full object-cover" /><div className="flex items-center justify-between gap-1 border-t border-slate-100 p-2 text-xs"><button type="button" onClick={() => void moveImage(index, -1)} disabled={imageBusy || index === 0} aria-label="Move image left" className="rounded border px-2 py-1 disabled:opacity-30">Left</button><button type="button" onClick={() => void setPrimary(image.id)} disabled={imageBusy || image.is_primary} className="flex-1 rounded border px-1 py-1 disabled:opacity-50">{image.is_primary ? 'Primary' : 'Set primary'}</button><button type="button" onClick={() => void moveImage(index, 1)} disabled={imageBusy || index === existingImages.length - 1} aria-label="Move image right" className="rounded border px-2 py-1 disabled:opacity-30">Right</button><button type="button" onClick={() => void deleteImage(image.id)} disabled={imageBusy} aria-label="Delete image" className="rounded border border-red-200 px-2 py-1 text-red-700">Delete</button></div></div>)}</div>}
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          disabled={existingImages.length + images.length >= MAX_PROPERTY_IMAGES}
+          onChange={event => {
+            const selected = Array.from(event.target.files || [])
+            const remaining = MAX_PROPERTY_IMAGES - existingImages.length - images.length
+            setImages(current => [...current, ...selected.slice(0, remaining)])
+            setImageNotice(selected.length > remaining ? 'Only 3 images are allowed per property.' : null)
+            event.currentTarget.value = ''
+          }}
+          className="block w-full text-sm text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+        />
+        {imageNotice && <p className="mt-2 text-sm text-amber-700">{imageNotice}</p>}
+        {images.length > 0 && <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6">{images.map((file, index) => <div key={`${file.name}-${file.lastModified}`} className="relative"><img src={URL.createObjectURL(file)} alt={file.name} className="h-20 w-full rounded object-cover" /><button type="button" onClick={() => setImages(current => current.filter((_, fileIndex) => fileIndex !== index))} className="absolute right-1 top-1 rounded bg-slate-900/75 px-1.5 text-xs text-white" aria-label={`Remove ${file.name}`}>Remove</button></div>)}</div>}
       </div>
 
       <div className="flex justify-end">
