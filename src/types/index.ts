@@ -136,7 +136,7 @@ export interface Lease {
   updated_at?: string;
 }
 
-export type PaymentStatus = 'pending' | 'approved' | 'rejected';
+export type PaymentStatus = 'pending' | 'approved' | 'rejected' | 'refund_pending';
 
 export interface Payment {
   id: number;

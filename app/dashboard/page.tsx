@@ -57,7 +57,6 @@ function BuyerRenterDashboard({ user }: { user: any }) {
   const [inquiries, setInquiries] = useState<Inquiry[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
   const [leases, setLeases] = useState<Lease[]>([])
-  const [payments, setPayments] = useState<Payment[]>([])
   const [notifications, setNotifications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -325,6 +324,7 @@ function BuyerRenterDashboard({ user }: { user: any }) {
 function OwnerAgentDashboard({ user }: { user: any }) {
   const [properties, setProperties] = useState<Property[]>([])
   const [leases, setLeases] = useState<Lease[]>([])
+  const [payments, setPayments] = useState<Payment[]>([])
   const [leaseForm, setLeaseForm] = useState({ property_id: '', start_date: '', rent_amount: '', currency: 'RWF' })
   const [tenantId, setTenantId] = useState('')
   const [leaseLoading, setLeaseLoading] = useState(false)
