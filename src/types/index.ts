@@ -117,6 +117,7 @@ export interface InquiryMessage {
   message: string;
   user?: User;
   created_at?: string;
+  updated_at?: string;
 }
 
 export interface Favorite {

@@ -268,6 +268,9 @@ export const api = {
     async message(id: number, message: string): Promise<Inquiry> {
       return request(`/inquiries/${id}/messages`, { method: 'POST', body: { message } });
     },
+    async updateMessage(inquiryId: number, messageId: number, message: string): Promise<Inquiry> {
+      return request(`/inquiries/${inquiryId}/messages/${messageId}`, { method: 'PATCH', body: { message } });
+    },
   },
 
   favorites: {

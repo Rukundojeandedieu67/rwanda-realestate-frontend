@@ -82,6 +82,9 @@ function BuyerRenterDashboard({ user }: { user: any }) {
   const [inquiries, setInquiries] = useState<Inquiry[]>([])
   const [inquiryMessages, setInquiryMessages] = useState<Record<number, string>>({})
   const [sendingInquiryMessage, setSendingInquiryMessage] = useState<number | null>(null)
+  const [editingMessage, setEditingMessage] = useState<{ inquiryId: number; messageId: number } | null>(null)
+  const [editedMessage, setEditedMessage] = useState('')
+  const [savingMessage, setSavingMessage] = useState(false)
   const [payments, setPayments] = useState<Payment[]>([])
   const [leases, setLeases] = useState<Lease[]>([])
   const [notifications, setNotifications] = useState<any[]>([])
@@ -152,6 +155,23 @@ function BuyerRenterDashboard({ user }: { user: any }) {
       setError(err.message || 'Failed to send message')
     } finally {
       setSendingInquiryMessage(null)
+    }
+  }
+
+  async function handleEditMessage(inquiryId: number, messageId: number) {
+    const message = editedMessage.trim()
+    if (!message) return
+
+    try {
+      setSavingMessage(true)
+      const updated = await api.inquiries.updateMessage(inquiryId, messageId, message)
+      setInquiries(prev => prev.map(item => item.id === inquiryId ? updated : item))
+      setEditingMessage(null)
+      setEditedMessage('')
+    } catch (err: any) {
+      setError(err.message || 'Failed to edit message')
+    } finally {
+      setSavingMessage(false)
     }
   }
 
@@ -279,8 +299,19 @@ function BuyerRenterDashboard({ user }: { user: any }) {
                 <div className="space-y-2">
                   {getInquiryMessages(inq).map(message => (
                     <div key={message.id} className={`rounded-lg p-3 text-sm ${message.user_id === user.id ? 'ml-6 bg-slate-100' : 'mr-6 bg-nzu-teal/5'}`}>
-                      <p className="font-medium text-slate-700">{message.user_id === user.id ? 'You' : message.user?.name || 'Property contact'}</p>
-                      <p className="mt-1 text-slate-700">{message.message}</p>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-medium text-slate-700">{message.user_id === user.id ? 'You' : message.user?.name || 'Property contact'}</p>
+                        {message.user_id === user.id && message.id > 0 && editingMessage?.messageId !== message.id && <button type="button" onClick={() => { setEditingMessage({ inquiryId: inq.id, messageId: message.id }); setEditedMessage(message.message) }} className="text-xs font-semibold text-nzu-teal hover:underline">Edit</button>}
+                      </div>
+                      {editingMessage?.messageId === message.id ? (
+                        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                          <textarea value={editedMessage} onChange={event => setEditedMessage(event.target.value)} rows={2} className="min-h-16 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-nzu-teal focus:outline-none" />
+                          <div className="flex gap-2 sm:self-end">
+                            <button type="button" onClick={() => { setEditingMessage(null); setEditedMessage('') }} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">Cancel</button>
+                            <button type="button" onClick={() => void handleEditMessage(inq.id, message.id)} disabled={savingMessage || !editedMessage.trim()} className="rounded-lg bg-nzu-teal px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">{savingMessage ? 'Saving...' : 'Save'}</button>
+                          </div>
+                        </div>
+                      ) : <p className="mt-1 text-slate-700">{message.message}{message.updated_at && message.created_at && message.updated_at !== message.created_at ? <span className="ml-2 text-xs text-slate-500">(edited)</span> : null}</p>}
                     </div>
                   ))}
                 </div>
@@ -391,6 +422,9 @@ function OwnerAgentDashboard({ user }: { user: any }) {
   const [inquiries, setInquiries] = useState<Inquiry[]>([])
   const [inquiryResponses, setInquiryResponses] = useState<Record<number, string>>({})
   const [respondingInquiry, setRespondingInquiry] = useState<number | null>(null)
+  const [editingMessage, setEditingMessage] = useState<{ inquiryId: number; messageId: number } | null>(null)
+  const [editedMessage, setEditedMessage] = useState('')
+  const [savingMessage, setSavingMessage] = useState(false)
   const [leases, setLeases] = useState<Lease[]>([])
   const [payments, setPayments] = useState<Payment[]>([])
   const [leaseForm, setLeaseForm] = useState({ property_id: '', start_date: '', rent_amount: '', currency: 'RWF' })
@@ -499,6 +533,23 @@ function OwnerAgentDashboard({ user }: { user: any }) {
       setActionError(err.message || 'Failed to send inquiry response')
     } finally {
       setRespondingInquiry(null)
+    }
+  }
+
+  async function handleEditMessage(inquiryId: number, messageId: number) {
+    const message = editedMessage.trim()
+    if (!message) return
+
+    try {
+      setSavingMessage(true)
+      const updated = await api.inquiries.updateMessage(inquiryId, messageId, message)
+      setInquiries(prev => prev.map(item => item.id === inquiryId ? updated : item))
+      setEditingMessage(null)
+      setEditedMessage('')
+    } catch (err: any) {
+      setActionError(err.message || 'Failed to edit message')
+    } finally {
+      setSavingMessage(false)
     }
   }
 
@@ -772,8 +823,19 @@ function OwnerAgentDashboard({ user }: { user: any }) {
                     <div className="mt-4 space-y-2">
                       {getInquiryMessages(inquiry).map(message => (
                         <div key={message.id} className={`rounded-lg p-3 text-sm ${message.user_id === user.id ? 'ml-6 bg-nzu-teal/10' : 'mr-6 bg-white'}`}>
-                          <p className="font-semibold text-slate-700">{message.user_id === user.id ? 'You' : message.user?.name || 'Inquiry sender'}</p>
-                          <p className="mt-1 text-slate-700">{message.message}</p>
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="font-semibold text-slate-700">{message.user_id === user.id ? 'You' : message.user?.name || 'Inquiry sender'}</p>
+                            {message.user_id === user.id && message.id > 0 && editingMessage?.messageId !== message.id && <button type="button" onClick={() => { setEditingMessage({ inquiryId: inquiry.id, messageId: message.id }); setEditedMessage(message.message) }} className="text-xs font-semibold text-nzu-teal hover:underline">Edit</button>}
+                          </div>
+                          {editingMessage?.messageId === message.id ? (
+                            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                              <textarea value={editedMessage} onChange={event => setEditedMessage(event.target.value)} rows={2} className="min-h-16 flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-nzu-teal focus:outline-none" />
+                              <div className="flex gap-2 sm:self-end">
+                                <button type="button" onClick={() => { setEditingMessage(null); setEditedMessage('') }} className="rounded-lg border border-slate-300 px-3 py-2 text-sm">Cancel</button>
+                                <button type="button" onClick={() => void handleEditMessage(inquiry.id, message.id)} disabled={savingMessage || !editedMessage.trim()} className="rounded-lg bg-nzu-teal px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">{savingMessage ? 'Saving...' : 'Save'}</button>
+                              </div>
+                            </div>
+                          ) : <p className="mt-1 text-slate-700">{message.message}{message.updated_at && message.created_at && message.updated_at !== message.created_at ? <span className="ml-2 text-xs text-slate-500">(edited)</span> : null}</p>}
                         </div>
                       ))}
                     </div>
