@@ -56,6 +56,8 @@ export default function SuperAdminSettingsPage() {
         editableSettings.smtp_port = String(settings.smtp_port)
       }
       if (settings.smtp_username) editableSettings.smtp_username = settings.smtp_username
+      if (settings.smtp_encryption) editableSettings.smtp_encryption = settings.smtp_encryption
+      if (settings.smtp_password) editableSettings.smtp_password = settings.smtp_password
       const saved = await api.settings.update(editableSettings)
       let imagePath: string | undefined
       if (image) {
@@ -124,9 +126,9 @@ export default function SuperAdminSettingsPage() {
         <h2 className="text-xl font-bold text-white">Email (SMTP) Configuration</h2>
         <p className="mt-1 text-sm text-slate-400">Sensitive values are write-only and are never displayed here.</p>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          {([['smtp_host', 'SMTP host'], ['smtp_port', 'SMTP port'], ['smtp_username', 'SMTP username'], ['smtp_password', 'SMTP password'], ['smtp_from_address', 'From address']] as const).map(([field, label]) => {
+          {([['smtp_host', 'SMTP host'], ['smtp_port', 'SMTP port'], ['smtp_username', 'SMTP username'], ['smtp_encryption', 'Encryption'], ['smtp_password', 'SMTP password']] as const).map(([field, label]) => {
             const configured = Boolean(settings[`${field}_configured` as keyof SiteSettings]) || Boolean(settings[field])
-            return <label key={field}><span className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-300"><span>{label}</span><span className={configured ? 'text-emerald-300' : 'text-slate-500'}>{configured ? 'Configured' : 'Not set'}</span></span><input type={field === 'smtp_password' ? 'password' : 'text'} value={field === 'smtp_password' ? '' : String(settings[field] || '')} onChange={event => update(field, event.target.value)} placeholder={configured ? 'Leave blank to keep current value' : ''} className="w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-white" /></label>
+            return <label key={field}><span className="mb-2 flex items-center justify-between text-sm font-semibold text-slate-300"><span>{label}</span><span className={configured ? 'text-emerald-300' : 'text-slate-500'}>{configured ? 'Configured' : 'Not set'}</span></span>{field === 'smtp_encryption' ? <select value={String(settings[field] || 'tls')} onChange={event => update(field, event.target.value)} className="w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-white"><option value="tls">TLS (587)</option><option value="ssl">SSL (465)</option><option value="">None</option></select> : <input type={field === 'smtp_password' ? 'password' : 'text'} value={String(settings[field] || '')} onChange={event => update(field, event.target.value)} placeholder={configured ? 'Leave blank to keep current value' : ''} className="w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-white" />}</label>
           })}
         </div>
       </section>

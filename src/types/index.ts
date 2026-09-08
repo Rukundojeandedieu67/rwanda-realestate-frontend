@@ -21,12 +21,11 @@ export interface SiteSettings {
   smtp_port_configured?: boolean;
   smtp_username_configured?: boolean;
   smtp_password_configured?: boolean;
-  smtp_from_address_configured?: boolean;
+  smtp_encryption?: string | null;
   smtp_password?: string | null;
   smtp_host?: string | null;
   smtp_port?: string | number | null;
   smtp_username?: string | null;
-  smtp_from_address?: string | null;
   featured_listing_enabled?: boolean;
   featured_listing_price?: string | number | null;
   featured_listing_currency?: 'RWF' | 'USD' | string | null;
