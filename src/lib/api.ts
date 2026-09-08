@@ -161,6 +161,12 @@ export const api = {
     async login(data: { email: string; password: string }): Promise<{ user: User; token: string }> {
       return request('/login', { method: 'POST', body: data });
     },
+    async forgotPassword(email: string): Promise<{ message: string; sent: boolean }> {
+      return request('/forgot-password', { method: 'POST', body: { email } });
+    },
+    async resetPassword(data: { email: string; token: string; password: string; password_confirmation: string }): Promise<{ message: string }> {
+      return request('/reset-password', { method: 'POST', body: data });
+    },
     async logout(): Promise<void> {
       return request('/logout', { method: 'POST' });
     },
