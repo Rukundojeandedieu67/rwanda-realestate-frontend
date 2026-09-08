@@ -13,6 +13,8 @@ export default function SuperAdminSettingsPage() {
   const [preview, setPreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [testingEmail, setTestingEmail] = useState(false)
+  const [testEmail, setTestEmail] = useState('')
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
   const [newMethod, setNewMethod] = useState({ name: '', type: 'momo' as PaymentMethod['type'], account_number: '', account_name: '', instructions: '' })
@@ -75,6 +77,19 @@ export default function SuperAdminSettingsPage() {
     }
   }
 
+  async function sendTestEmail() {
+    setTestingEmail(true)
+    setFeedback(null)
+    try {
+      const response = await api.superadmin.testEmail(testEmail)
+      setFeedback({ type: 'success', text: response.message })
+    } catch (error: any) {
+      setFeedback({ type: 'error', text: error.message || 'SMTP test failed.' })
+    } finally {
+      setTestingEmail(false)
+    }
+  }
+
   async function savePaymentMethod() {
     try {
       const saved = editingMethod
@@ -119,6 +134,7 @@ export default function SuperAdminSettingsPage() {
           <label><span className="mb-2 block text-sm font-semibold text-slate-300">Hero subheadline</span><textarea value={settings.hero_subheadline || ''} onChange={event => update('hero_subheadline', event.target.value)} rows={3} className="w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-white" /></label>
           <label><span className="mb-2 block text-sm font-semibold text-slate-300">Hero background image</span><input type="file" accept="image/*" onChange={event => chooseImage(event.target.files?.[0])} className="block w-full text-sm text-slate-300" />{(preview || settings.hero_background_image_url) && <img src={preview || settings.hero_background_image_url || ''} alt="Hero preview" className="mt-3 h-40 w-full rounded-lg object-cover" />}</label>
         </div>
+        <div className="mt-5 flex flex-col gap-3 border-t border-slate-700 pt-5 sm:flex-row"><input type="email" required value={testEmail} onChange={event => setTestEmail(event.target.value)} placeholder="Test recipient email" className="flex-1 rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-white" /><button type="button" disabled={testingEmail || !testEmail} onClick={() => void sendTestEmail()} className="rounded-lg border border-amber-300/50 px-4 py-2 font-semibold text-amber-200 disabled:opacity-50">{testingEmail ? 'Sending test...' : 'Send test email'}</button></div>
       </section>
       <section className="rounded-xl border border-slate-700 bg-slate-900 p-6">
         <div className="flex items-center justify-between gap-4"><div><h2 className="text-xl font-bold text-white">Site Notification</h2><p className="mt-1 text-sm text-slate-400">Shown to every visitor while active.</p></div><label className="flex items-center gap-2 text-sm font-semibold text-amber-200"><input type="checkbox" checked={Boolean(settings.site_notification_active)} onChange={event => update('site_notification_active', event.target.checked)} className="h-4 w-4 accent-amber-300" /> Active</label></div>

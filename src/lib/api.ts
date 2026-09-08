@@ -433,6 +433,9 @@ export const api = {
     async paymentMethods(): Promise<PaymentMethod[]> {
       return request('/superadmin/payment-methods');
     },
+    async testEmail(email: string): Promise<{ message: string }> {
+      return request('/superadmin/settings/test-email', { method: 'POST', body: { email } });
+    },
     async createPaymentMethod(data: Omit<PaymentMethod, 'id'>): Promise<PaymentMethod> {
       return request('/superadmin/payment-methods', { method: 'POST', body: data });
     },
