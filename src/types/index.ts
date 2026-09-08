@@ -22,6 +22,8 @@ export interface SiteSettings {
   smtp_username_configured?: boolean;
   smtp_password_configured?: boolean;
   smtp_encryption?: string | null;
+  smtp_from_address?: string | null;
+  smtp_from_name?: string | null;
   smtp_password?: string | null;
   smtp_host?: string | null;
   smtp_port?: string | number | null;
