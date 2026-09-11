@@ -76,6 +76,8 @@ export interface Property {
   sector?: string | null;
   cell?: string | null;
   village?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   bedrooms?: number | null;
   bathrooms?: number | null;
   size_sqm?: number | null;

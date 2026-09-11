@@ -27,6 +27,11 @@ function PropertiesContent() {
   const [minPrice, setMinPrice] = useState(searchParams.get('min_price') || '')
   const [maxPrice, setMaxPrice] = useState(searchParams.get('max_price') || '')
   const [search, setSearch] = useState(searchParams.get('search') || '')
+  const [latitude, setLatitude] = useState(searchParams.get('latitude') || '')
+  const [longitude, setLongitude] = useState(searchParams.get('longitude') || '')
+  const [radiusKm, setRadiusKm] = useState(searchParams.get('radius_km') || '10')
+  const [locationMessage, setLocationMessage] = useState<string | null>(null)
+  const [locationLoading, setLocationLoading] = useState(false)
 
   async function fetchProperties() {
     setLoading(true)
@@ -40,6 +45,11 @@ function PropertiesContent() {
       if (district) filters.district = district
       if (minPrice) filters.min_price = minPrice
       if (maxPrice) filters.max_price = maxPrice
+      if (latitude && longitude) {
+        filters.latitude = latitude
+        filters.longitude = longitude
+        filters.radius_km = radiusKm
+      }
       filters.per_page = '12'
 
       const result: Paginated<Property> = await api.properties.list(filters)
@@ -64,8 +74,36 @@ function PropertiesContent() {
     if (district) params.append('district', district)
     if (minPrice) params.append('min_price', minPrice)
     if (maxPrice) params.append('max_price', maxPrice)
+    if (latitude && longitude) {
+      params.append('latitude', latitude)
+      params.append('longitude', longitude)
+      params.append('radius_km', radiusKm)
+    }
     window.history.replaceState(null, '', `/properties?${params.toString()}`)
     fetchProperties()
+  }
+
+  function handleUseMyLocation() {
+    if (!navigator.geolocation) {
+      setLocationMessage('Location is not supported by this browser. Search by province or district instead.')
+      return
+    }
+
+    setLocationLoading(true)
+    setLocationMessage(null)
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        setLatitude(String(position.coords.latitude))
+        setLongitude(String(position.coords.longitude))
+        setLocationLoading(false)
+        setLocationMessage('Location found. Choose a radius, then search.')
+      },
+      () => {
+        setLocationLoading(false)
+        setLocationMessage('We could not access your location. Search by province or district instead.')
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
+    )
   }
 
   return (
@@ -82,7 +120,7 @@ function PropertiesContent() {
       </div>
 
       <form onSubmit={event => { event.preventDefault(); handleApplyFilters() }} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <label htmlFor="property-search" className="mb-2 block text-sm font-semibold text-slate-800">Search by title or location</label>
+        <label htmlFor="property-search" className="mb-2 block text-sm font-semibold text-slate-800">Search by home, region, or nearby location</label>
         <div className="flex flex-col gap-3 sm:flex-row">
           <div className="relative flex-1">
             <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-lg text-slate-400">⌕</span>
@@ -91,12 +129,28 @@ function PropertiesContent() {
               type="search"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Try ‘Kigali’, ‘house’, or ‘office’"
+              placeholder="Try Kigali, Gasabo, house, or office"
               className="w-full rounded-xl border border-slate-300 bg-slate-50 py-3 pl-10 pr-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-nzu-teal focus:bg-white focus:ring-2 focus:ring-nzu-teal/15"
             />
           </div>
           <button type="submit" className="rounded-xl bg-nzu-terracotta px-6 py-3 text-sm font-bold text-white transition hover:bg-nzu-terracotta-dark focus:outline-none focus:ring-2 focus:ring-nzu-terracotta/30 focus:ring-offset-2">Search properties</button>
         </div>
+        <div className="mt-4 flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <label htmlFor="radius-km" className="mb-2 block text-sm font-semibold text-slate-800">Nearby search radius</label>
+            <select id="radius-km" value={radiusKm} onChange={e => setRadiusKm(e.target.value)} className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 text-sm focus:border-nzu-teal focus:bg-white focus:outline-none sm:max-w-xs">
+              <option value="5">Within 5 km</option>
+              <option value="10">Within 10 km</option>
+              <option value="25">Within 25 km</option>
+              <option value="50">Within 50 km</option>
+            </select>
+          </div>
+          <button type="button" onClick={handleUseMyLocation} disabled={locationLoading} className="rounded-xl border border-nzu-teal px-5 py-3 text-sm font-bold text-nzu-teal transition hover:bg-nzu-teal/5 disabled:cursor-wait disabled:opacity-60">
+            {locationLoading ? 'Finding you...' : 'Use my location'}
+          </button>
+          {latitude && longitude && <span className="text-xs text-slate-500">Nearby coordinates ready</span>}
+        </div>
+        {locationMessage && <p className="mt-3 text-sm text-slate-600" role="status">{locationMessage}</p>}
       </form>
 
       <div className="flex flex-col gap-6 lg:flex-row">

@@ -20,6 +20,8 @@ export type PropertyFormValues = {
   sector: string
   cell: string
   village: string
+  latitude: string
+  longitude: string
   bedrooms: string
   bathrooms: string
   size_sqm: string
@@ -38,6 +40,8 @@ const defaultValues: PropertyFormValues = {
   sector: '',
   cell: '',
   village: '',
+  latitude: '',
+  longitude: '',
   bedrooms: '',
   bathrooms: '',
   size_sqm: '',
@@ -272,6 +276,34 @@ export default function PropertyForm({
             onChange={e => updateField('village', e.target.value)}
             className="w-full rounded-lg border border-slate-300 px-3 py-2"
             placeholder="Nyabugogo"
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-slate-700">Latitude</span>
+          <input
+            type="number"
+            step="any"
+            min="-90"
+            max="90"
+            value={form.latitude}
+            onChange={e => updateField('latitude', e.target.value)}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            placeholder="e.g. -1.9441"
+          />
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-sm font-medium text-slate-700">Longitude</span>
+          <input
+            type="number"
+            step="any"
+            min="-180"
+            max="180"
+            value={form.longitude}
+            onChange={e => updateField('longitude', e.target.value)}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2"
+            placeholder="e.g. 30.0619"
           />
         </label>
 

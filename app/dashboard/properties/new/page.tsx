@@ -39,6 +39,8 @@ export default function NewPropertyPage() {
         sector: form.sector || undefined,
         cell: form.cell || undefined,
         village: form.village || undefined,
+        latitude: form.latitude ? Number(form.latitude) : undefined,
+        longitude: form.longitude ? Number(form.longitude) : undefined,
         bedrooms: form.bedrooms ? Number(form.bedrooms) : null,
         bathrooms: form.bathrooms ? Number(form.bathrooms) : null,
         size_sqm: form.size_sqm ? Number(form.size_sqm) : null,
